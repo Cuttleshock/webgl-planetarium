@@ -10,6 +10,15 @@
 #define WINDOW_H 480
 #define FPS_CAP 60
 
+#define RED "\x1B[31m"
+#define GRN "\x1B[32m"
+#define YLW "\x1B[33m"
+#define BLU "\x1B[34m"
+#define MAG "\x1B[35m"
+#define CYN "\x1B[36m"
+#define WHT "\x1B[37m"
+#define COLOR_RESET "\x1B[0m"
+
 SDL_Window *g_window;
 SDL_GLContext g_glcontext;
 
@@ -146,12 +155,12 @@ void gl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum sev
 	}
 #undef CASE
 
-#define CASE(X) case GL_DEBUG_SEVERITY_##X: str_severity = #X; break;
+#define CASE(X, COLOR) case GL_DEBUG_SEVERITY_##X: str_severity = COLOR #X COLOR_RESET; break;
 	switch (severity) {
-		CASE(HIGH);
-		CASE(LOW);
-		CASE(MEDIUM);
-		CASE(NOTIFICATION);
+		CASE(HIGH, RED);
+		CASE(LOW, GRN);
+		CASE(MEDIUM, YLW);
+		CASE(NOTIFICATION, BLU);
 		default:
 			str_severity = "[unknown]";
 			break;
