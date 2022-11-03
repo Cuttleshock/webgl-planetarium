@@ -21,6 +21,16 @@
 
 SDL_Window *g_window;
 SDL_GLContext g_glcontext;
+GLsync g_transform_fence;
+
+GLfloat points[] = {
+	-0.5, -0.4,
+	-0.3, -0.3,
+	-0.1, -0.3,
+	0.1, -0.2,
+	0.2, -0.4,
+	0.6, -0.4,
+};
 
 void *my_malloc(size_t size)
 {
@@ -255,7 +265,7 @@ GLuint load_shader(char *fname, GLenum shader_type)
 	return shader;
 }
 
-GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, char **outs)
+GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, char **outs, int num_transforms, const char * const *transforms)
 {
 	GLuint program = glCreateProgram();
 
@@ -265,6 +275,7 @@ GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, cha
 	for (int i = 0; i < num_outs; ++i) {
 		glBindFragDataLocation(program, i, outs[i]);
 	}
+	glTransformFeedbackVaryings(program, num_transforms, transforms, GL_INTERLEAVED_ATTRIBS);
 	glLinkProgram(program);
 
 	for (int i = 0; i < num_shaders; ++i) {
@@ -311,15 +322,29 @@ void draw(void)
 	glClearColor(0.15, 0.1, 0.3, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glDrawArrays(GL_POINTS, 0, 6);
+	glBeginTransformFeedback(GL_POINTS);
+		glDrawArrays(GL_POINTS, 0, 6);
+	glEndTransformFeedback();
+	g_transform_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
 	SDL_GL_SwapWindow(g_window);
+}
+
+void update_post_draw(Uint64 delta)
+{
+	glClientWaitSync(g_transform_fence, 0, 1000 * 1000 * 5); // 5 ms
+	glGetBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, 0, sizeof(points), points);
+	for (int i = 0; i < sizeof(points) / sizeof(points[0]); ++i) {
+		printf("%1.2f ", points[i]);
+	}
+	printf("\n");
 }
 
 SDL_bool main_loop(Uint64 delta)
 {
 	SDL_bool loop_done = update(delta);
 	draw();
+	update_post_draw(delta);
 	return loop_done;
 }
 
@@ -376,8 +401,9 @@ int main(int argc, char *argv[])
 	shaders[1] = load_shader("shaders/particles.frag", GL_FRAGMENT_SHADER);
 	assert_or_cleanup(shaders[1] != 0, "Failed to load fragment shader", NULL);
 
-	char *outs_shaders = "out_color";
-	GLuint program = create_shader_program(2, shaders, 1, &outs_shaders);
+	char *outs = "out_color";
+	const char *transforms[] = { "out_position" };
+	GLuint program = create_shader_program(2, shaders, 1, &outs, 1, transforms);
 	assert_or_cleanup(program != 0, "Failed to create shader program", gl_get_error_stringified);
 	glUseProgram(program);
 
@@ -387,16 +413,9 @@ int main(int argc, char *argv[])
 		GLuint vbo;
 		glGenBuffers(1, &vbo);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_DYNAMIC_COPY);
 
-		const GLfloat points[] = {
-			-0.5, -0.4,
-			-0.3, -0.3,
-			-0.1, -0.3,
-			0.1, -0.2,
-			0.2, -0.4,
-			0.6, -0.4,
-		};
-		glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+		glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, vbo);
 
 		GLint in_position = glGetAttribLocation(program, "pos");
 		glEnableVertexAttribArray(in_position);
