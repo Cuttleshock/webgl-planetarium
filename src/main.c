@@ -22,6 +22,7 @@
 SDL_Window *g_window;
 SDL_GLContext g_glcontext;
 GLsync g_transform_fence;
+GLuint g_mouse_uniform;
 
 GLfloat points[] = {
 	-0.5, -0.4,
@@ -293,6 +294,15 @@ void push_quit_event(void)
 	SDL_PushEvent(&quit_event);
 }
 
+void update_mouse_position(void)
+{
+	int x, y;
+	SDL_GetMouseState(&x, &y);
+	GLfloat x_screenspace = ((GLfloat) 2.0 * x / (GLfloat) WINDOW_W) - 1.0;
+	GLfloat y_screenspace = 1.0 - ((GLfloat) 2.0 * y / (GLfloat) WINDOW_H);
+	glUniform2f(g_mouse_uniform, x_screenspace, y_screenspace);
+}
+
 SDL_bool update(Uint64 delta)
 {
 	SDL_Event e;
@@ -308,6 +318,9 @@ SDL_bool update(Uint64 delta)
 					default:
 						break;
 				}
+				break;
+			case SDL_MOUSEMOTION:
+				update_mouse_position();
 				break;
 			default:
 				break;
@@ -332,12 +345,7 @@ void draw(void)
 
 void update_post_draw(Uint64 delta)
 {
-	glClientWaitSync(g_transform_fence, 0, 1000 * 1000 * 5); // 5 ms
-	glGetBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, 0, sizeof(points), points);
-	for (int i = 0; i < sizeof(points) / sizeof(points[0]); ++i) {
-		printf("%1.2f ", points[i]);
-	}
-	printf("\n");
+	// Transform feedback unused
 }
 
 SDL_bool main_loop(Uint64 delta)
@@ -405,6 +413,7 @@ int main(int argc, char *argv[])
 	const char *transforms[] = { "out_position" };
 	GLuint program = create_shader_program(2, shaders, 1, &outs, 1, transforms);
 	assert_or_cleanup(program != 0, "Failed to create shader program", gl_get_error_stringified);
+	g_mouse_uniform = glGetUniformLocation(program, "mouse_pos");
 	glUseProgram(program);
 
 	GLuint vao;
