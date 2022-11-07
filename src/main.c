@@ -443,6 +443,16 @@ int main(int argc, char *argv[])
 	Uint64 f1_start; // Current frame
 	Uint64 f1_end;
 	Uint64 f2_start; // Next frame
+
+#ifdef DEBUG
+	Uint64 frame_number = 0; // Which frame are we on
+	Uint64 recent_delays[FPS_CAP] = { 0 }; // Sliding window of frame times
+	for (int i = 0; i < FPS_CAP; ++i) {
+		recent_delays[i] = 1000 / FPS_CAP;
+	}
+	Uint64 recent_total = (1000 / FPS_CAP) * FPS_CAP; // Sum of array
+#endif
+
 	SDL_bool loop_done = SDL_FALSE;
 
 	while (!loop_done) {
@@ -451,6 +461,13 @@ int main(int argc, char *argv[])
 		loop_done = main_loop(f1_start - f0_start);
 		f1_end = SDL_GetTicks64();
 		f0_start = f1_start;
+#ifdef DEBUG
+		recent_total -= recent_delays[frame_number];
+		recent_delays[frame_number] = f1_end - f1_start;
+		recent_total += recent_delays[frame_number];
+		printf("%2.2f FPS\n", (1000.0 * (float) FPS_CAP) / ((float) recent_total));
+		frame_number = (frame_number + 1) % FPS_CAP;
+#endif
 		if (f2_start > f1_end) {
 			SDL_Delay(f2_start - f1_end);
 		}
