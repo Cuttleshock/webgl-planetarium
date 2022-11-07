@@ -24,14 +24,9 @@ SDL_GLContext g_glcontext;
 GLsync g_transform_fence;
 GLuint g_mouse_uniform;
 
-GLfloat points[] = {
-	-0.5, -0.4,
-	-0.3, -0.3,
-	-0.1, -0.3,
-	0.1, -0.2,
-	0.2, -0.4,
-	0.6, -0.4,
-};
+#define POINTS_W 10
+#define POINTS_H 6
+GLfloat points[4 * POINTS_W * POINTS_H] = { 0.0 };
 
 void *my_malloc(size_t size)
 {
@@ -336,7 +331,7 @@ void draw(void)
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glBeginTransformFeedback(GL_POINTS);
-		glDrawArrays(GL_POINTS, 0, 6);
+		glDrawArrays(GL_POINTS, 0, POINTS_W * POINTS_H);
 	glEndTransformFeedback();
 	g_transform_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
@@ -345,7 +340,8 @@ void draw(void)
 
 void update_post_draw(Uint64 delta)
 {
-	// Transform feedback unused
+	glClientWaitSync(g_transform_fence, 0, 1000 * 1000 * 5); // 5 ms
+	// Other logic using updated positions
 }
 
 SDL_bool main_loop(Uint64 delta)
@@ -401,6 +397,13 @@ int main(int argc, char *argv[])
 		}
 	#endif
 
+	for (int i = 0; i < sizeof(points) / sizeof(points[0]); i += 4) {
+		points[i] = (((i / 4) % POINTS_W) + 0.5) * (2.0 / POINTS_W) - 1.0;
+		points[i + 1] = (((i / 4) / POINTS_W) + 0.5) * (2.0 / POINTS_H) - 1.0;
+		points[i + 2] = points[i];
+		points[i + 3] = points[i + 1];
+	}
+
 	GLuint shaders[2]; // vertex, fragment
 
 	shaders[0] = load_shader("shaders/particles.vert", GL_VERTEX_SHADER);
@@ -410,8 +413,8 @@ int main(int argc, char *argv[])
 	assert_or_cleanup(shaders[1] != 0, "Failed to load fragment shader", NULL);
 
 	char *outs = "out_color";
-	const char *transforms[] = { "out_position" };
-	GLuint program = create_shader_program(2, shaders, 1, &outs, 1, transforms);
+	const char *transforms[] = { "home_pos_feedback", "current_pos_feedback" };
+	GLuint program = create_shader_program(2, shaders, 1, &outs, 2, transforms);
 	assert_or_cleanup(program != 0, "Failed to create shader program", gl_get_error_stringified);
 	g_mouse_uniform = glGetUniformLocation(program, "mouse_pos");
 	glUseProgram(program);
@@ -426,9 +429,13 @@ int main(int argc, char *argv[])
 
 		glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, vbo);
 
-		GLint in_position = glGetAttribLocation(program, "pos");
-		glEnableVertexAttribArray(in_position);
-		glVertexAttribPointer(in_position, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), 0);
+		GLint in_home_pos = glGetAttribLocation(program, "home_pos");
+		glEnableVertexAttribArray(in_home_pos);
+		glVertexAttribPointer(in_home_pos, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+
+		GLint in_current_pos = glGetAttribLocation(program, "current_pos");
+		glEnableVertexAttribArray(in_current_pos);
+		glVertexAttribPointer(in_current_pos, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 
 		glUniform3f(glGetUniformLocation(program, "vert_color"), 0.85, 1.0, 0.75);
 
