@@ -3,7 +3,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <GLES3/gl3.h>
+#else
 #include <glad/gl.h>
+#endif
+
 #include <SDL2/SDL.h>
 
 #define WINDOW_W 640
@@ -82,6 +91,7 @@ void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter
 	}
 }
 
+#ifndef __EMSCRIPTEN__
 SDL_bool have_gl_debug_output(int glad_gl_version)
 {
 	if (glad_gl_version >= GLAD_MAKE_VERSION(4, 3)) {
@@ -92,11 +102,28 @@ SDL_bool have_gl_debug_output(int glad_gl_version)
 		return SDL_FALSE;
 	}
 }
+#endif
+
+#ifdef __EMSCRIPTEN__
+SDL_bool have_webgl_2(const char *gl_version_str)
+{
+	const char gles3[] = "OpenGL ES 3.0";
+	if (strncmp(gl_version_str, gles3, sizeof(gles3) - 1) == 0) {
+		return SDL_TRUE;
+	} else {
+		return SDL_FALSE;
+	}
+}
+#endif
 
 // Return value: success
 SDL_bool get_executable_dir(char *buf, size_t bufsiz)
 {
 	SDL_bool success = SDL_TRUE;
+#ifdef __EMSCRIPTEN__
+	buf[0] = '.';
+	buf[1] = 0;
+#else
 	ssize_t readlink_success = readlink("/proc/self/exe", buf, bufsiz);
 	if (readlink_success == -1) {
 		success = SDL_FALSE;
@@ -104,6 +131,7 @@ SDL_bool get_executable_dir(char *buf, size_t bufsiz)
 		char *last_slash = strrchr(buf, '/');
 		*last_slash = 0;
 	}
+#endif
 	return success;
 }
 
@@ -123,7 +151,7 @@ SDL_bool make_absolute_path(char *relative, char *buf, size_t bufsiz)
 	}
 }
 
-#if defined DEBUG
+#if defined DEBUG && !defined __EMSCRIPTEN__
 void gl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param)
 {
 	const char *str_source;
@@ -269,7 +297,14 @@ GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, cha
 		glAttachShader(program, shaders[i]);
 	}
 	for (int i = 0; i < num_outs; ++i) {
+#ifdef __EMSCRIPTEN__
+		glBindAttribLocation(program, i, outs[i]);
+		if (i == 0) {
+			glEnableVertexAttribArray(i);
+		}
+#else
 		glBindFragDataLocation(program, i, outs[i]);
+#endif
 	}
 	glTransformFeedbackVaryings(program, num_transforms, transforms, GL_INTERLEAVED_ATTRIBS);
 	glLinkProgram(program);
@@ -352,6 +387,17 @@ SDL_bool main_loop(Uint64 delta)
 	return loop_done;
 }
 
+#ifdef __EMSCRIPTEN__
+void main_loop_emscripten(void)
+{
+	SDL_bool loop_done = main_loop(16);
+	if (loop_done) {
+		emscripten_cancel_main_loop();
+		free_all();
+	}
+}
+#endif
+
 int main(int argc, char *argv[])
 {
 	srand(time(NULL));
@@ -362,10 +408,16 @@ int main(int argc, char *argv[])
 		SDL_GetError
 	);
 
+#ifdef __EMSCRIPTEN__
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -383,6 +435,11 @@ int main(int argc, char *argv[])
 	g_glcontext = SDL_GL_CreateContext(g_window);
 	assert_or_cleanup(g_glcontext != NULL, "Failed to create OpenGL context", SDL_GetError);
 
+#ifdef __EMSCRIPTEN__
+	const GLubyte *gl_version_str = glGetString(GL_VERSION);
+	printf("%s\n", gl_version_str);
+	assert_or_cleanup(have_webgl_2((const char *) gl_version_str), "This browser does not support WebGL 2.0", gl_get_error_stringified);
+#else
 	int gl_version = gladLoadGL((GLADloadfunc) SDL_GL_GetProcAddress);
 	assert_or_cleanup(gl_version != 0, "Failed to load OpenGL functions", NULL);
 	printf("OpenGL version %d.%d\n", GLAD_VERSION_MAJOR(gl_version), GLAD_VERSION_MINOR(gl_version));
@@ -396,6 +453,7 @@ int main(int argc, char *argv[])
 			glDebugMessageCallback(gl_debug_message_callback, NULL);
 		}
 	#endif
+#endif
 
 	for (int i = 0; i < sizeof(points) / sizeof(points[0]); i += 6) {
 		points[i] = (((i / 6) % POINTS_W) + 0.5) * (2.0 / POINTS_W) - 1.0;
@@ -443,6 +501,9 @@ int main(int argc, char *argv[])
 
 		glUniform3f(glGetUniformLocation(program, "vert_color"), 0.85, 1.0, 0.75);
 
+#ifdef __EMSCRIPTEN__
+	emscripten_set_main_loop(main_loop_emscripten, 0, EM_TRUE);
+#else
 	Uint64 f0_start = SDL_GetTicks64() - 1000 / FPS_CAP; // Last frame
 	Uint64 f1_start; // Current frame
 	Uint64 f1_end;
@@ -476,6 +537,7 @@ int main(int argc, char *argv[])
 			SDL_Delay(f2_start - f1_end);
 		}
 	}
+#endif
 
 	free_all();
 	return 0;

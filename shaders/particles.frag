@@ -1,8 +1,8 @@
-#version 150 core
+#version 300 es
 
-in vec3 frag_color;
+in mediump vec3 frag_color;
 
-out vec4 out_color;
+out mediump vec4 out_color;
 
 void main()
 {

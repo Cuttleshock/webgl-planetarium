@@ -1,38 +1,90 @@
-COMPILE_FLAGS = -Wall -c `sdl2-config --cflags`
 DEBUG_FLAGS = -DDEBUG -O0 -g
+COMPILE_FLAGS = -Wall -c
 INCLUDES = -I/usr/local/include
-LINK_FLAGS = -Wall -g -lGL `sdl2-config --libs`
+LINK_FLAGS = -Wall -g
 
-EXE = $(BUILD_DIR)/main
+COMPILE_FLAGS_LINUX = `sdl2-config --cflags`
+INCLUDES_LINUX =
+LINK_FLAGS_LINUX = -lGL `sdl2-config --libs`
 
-SOURCE_FILES = main glad_gl
-.COPY_FILES = shaders/particles.vert shaders/particles.frag LICENSE.md
+COMPILE_FLAGS_WEB = -sUSE_SDL=2
+INCLUDES_WEB =
+LINK_FLAGS_WEB = --shell-file $(SHELL_FILE_WEB) -sUSE_SDL=2 -sFORCE_FILESYSTEM=1 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2
+
+EXE_LINUX = $(BUILD_DIR_LINUX)/main
+EXE_WEB = $(BUILD_DIR_WEB)/main.html
+
+SOURCES_LINUX = main glad_gl
+SOURCES_WEB = main
+SHELL_FILE_WEB = web_shell.html
+SHADERS = shaders/particles.vert shaders/particles.frag
+LICENSE = LICENSE.md
+.COPY_FILES = $(SHADERS) $(LICENSE)
 
 SOURCE_DIR = src
 OBJECT_DIR = objects
 SHADER_DIR = shaders
-BUILD_DIR = build
 
-OBJECTS = $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(OBJECT_DIR)/, $(SOURCE_FILES)))
-COPY_FILES = $(addprefix $(BUILD_DIR)/, $(.COPY_FILES))
+BUILD_DIR_LINUX = build-linux
+BUILD_DIR_WEB = build-web
 
-linux : $(EXE) $(COPY_FILES)
+OBJECTS_LINUX = $(addsuffix .o, $(addprefix $(BUILD_DIR_LINUX)/$(OBJECT_DIR)/, $(SOURCES_LINUX)))
+COPY_FILES_LINUX = $(addprefix $(BUILD_DIR_LINUX)/, $(.COPY_FILES))
+
+OBJECTS_WEB = $(addsuffix .o, $(addprefix $(BUILD_DIR_WEB)/$(OBJECT_DIR)/, $(SOURCES_WEB)))
+ASSETS_DATA_WEB = $(BUILD_DIR_WEB)/assets.data
+ASSETS_JS_WEB = $(BUILD_DIR_WEB)/assets.js
+EM_PACKAGER := $(dir $(firstword $(shell which emcc)))tools/file_packager
+
+dummy :
+	@echo "make {debug-}[linux|web]"
 
 clean :
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR_LINUX)
+	rm -rf $(BUILD_DIR_WEB)
 
-debug : COMPILE_FLAGS += $(DEBUG_FLAGS)
-debug : linux
+debug-linux : COMPILE_FLAGS += $(DEBUG_FLAGS)
+debug-linux : linux
 
-$(EXE) : $(OBJECTS)
+debug-web : COMPILE_FLAGS += $(DEBUG_FLAGS)
+debug-web : web
+
+linux : COMPILE_FLAGS += $(COMPILE_FLAGS_LINUX)
+linux : INCLUDES += $(INCLUDES_LINUX)
+linux : LINK_FLAGS += $(LINK_FLAGS_LINUX)
+
+web : COMPILE_FLAGS += $(COMPILE_FLAGS_WEB)
+web : INCLUDES += $(INCLUDES_WEB)
+web : LINK_FLAGS += $(LINK_FLAGS_WEB)
+
+linux : $(EXE_LINUX) $(COPY_FILES_LINUX)
+
+$(EXE_LINUX) : $(OBJECTS_LINUX)
 	gcc $^ -o $@ $(LINK_FLAGS)
 
-$(OBJECTS) : $(BUILD_DIR)/$(OBJECT_DIR)/%.o : $(SOURCE_DIR)/%.c
+$(OBJECTS_LINUX) : $(BUILD_DIR_LINUX)/$(OBJECT_DIR)/%.o : $(SOURCE_DIR)/%.c
 	mkdir -p $(@D)
 	gcc $< -o $@ $(COMPILE_FLAGS) $(INCLUDES)
 
-$(COPY_FILES) : $(BUILD_DIR)/% : %
+$(COPY_FILES_LINUX) : $(BUILD_DIR_LINUX)/% : %
 	mkdir -p $(@D)
 	cp $< $@
 
-.PHONY : debug linux clean
+web : $(EXE_WEB) $(BUILD_DIR_WEB)/$(LICENSE) $(ASSETS_DATA_WEB) $(ASSETS_JS_WEB)
+
+$(EXE_WEB) : $(OBJECTS_WEB)
+	emcc $^ -o $@ $(LINK_FLAGS)
+
+$(OBJECTS_WEB) : $(BUILD_DIR_WEB)/$(OBJECT_DIR)/%.o : $(SOURCE_DIR)/%.c
+	mkdir -p $(@D)
+	emcc $< -o $@ $(COMPILE_FLAGS) $(INCLUDES)
+
+$(BUILD_DIR_WEB)/$(LICENSE) : $(LICENSE)
+	mkdir -p $(@D)
+	cp $< $@
+
+$(ASSETS_DATA_WEB) $(ASSETS_JS_WEB) &: $(SHADERS)
+	$(EM_PACKAGER) $(ASSETS_DATA_WEB) --preload $(SHADER_DIR) --js-output=$(ASSETS_JS_WEB)
+	touch $(ASSETS_JS_WEB)
+
+.PHONY : debug-linux debug-web linux web dummy clean

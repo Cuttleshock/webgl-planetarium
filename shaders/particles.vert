@@ -1,4 +1,4 @@
-#version 150 core
+#version 300 es
 
 in vec2 home_pos;
 in vec2 speed;
@@ -13,7 +13,7 @@ out vec2 current_pos_feedback;
 uniform vec3 vert_color;
 uniform vec2 mouse_pos;
 
-const float home_m = 1; // Mass of home well
+const float home_m = 1.0; // Mass of home well
 const float home_r = 0.2; // Radius (below which gravity is constant).
 // Strictly it should be linear, but that makes the centre of gravity unstable.
 const float mouse_m = 0.01;
@@ -32,13 +32,13 @@ void main()
 
 	if (to_home_r >= home_r) {
 		accel += to_home * home_m / (to_home_r * to_home_r * to_home_r);
-	} else if (to_home_r > 0) {
+	} else if (to_home_r > 0.0) {
 		accel += to_home * home_m / (to_home_r * home_r * home_r);
 	}
 
 	if (to_mouse_r >= mouse_r) {
 		accel += to_mouse * mouse_m / (to_mouse_r * to_mouse_r * to_mouse_r);
-	} else if (to_mouse_r > 0) {
+	} else if (to_mouse_r > 0.0) {
 		accel += to_mouse * mouse_m / (to_mouse_r * mouse_r * mouse_r);
 	}
 
