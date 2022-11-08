@@ -24,7 +24,7 @@ SOURCES_LINUX = main glad_gl
 SOURCES_WIN = main glad_gl
 SOURCES_WEB = main
 SHELL_FILE_WEB = web_shell.html
-SHADERS = shaders/particles.vert shaders/particles.frag
+SHADERS = shaders/particles.vert shaders/particles.frag shaders/init_particles.vert shaders/init_particles.frag
 LICENSE = LICENSE.md
 .COPY_FILES = $(SHADERS) $(LICENSE)
 

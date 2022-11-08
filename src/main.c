@@ -41,7 +41,6 @@ GLuint g_mouse_uniform;
 
 #define POINTS_W 10
 #define POINTS_H 6
-GLfloat points[6 * POINTS_W * POINTS_H] = { 0.0 };
 
 void *my_malloc(size_t size)
 {
@@ -410,7 +409,7 @@ void draw(void)
 
 void update_post_draw(Uint64 delta)
 {
-	glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, sizeof(points));
+	glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H);
 }
 
 SDL_bool main_loop(Uint64 delta)
@@ -489,12 +488,17 @@ int main(int argc, char *argv[])
 	#endif
 #endif
 
-	for (int i = 0; i < sizeof(points) / sizeof(points[0]); i += 6) {
-		points[i] = (((i / 6) % POINTS_W) + 0.5) * (2.0 / POINTS_W) - 1.0;
-		points[i + 1] = (((i / 6) / POINTS_W) + 0.5) * (2.0 / POINTS_H) - 1.0;
-		points[i + 4] = points[i];
-		points[i + 5] = points[i + 1];
-	}
+	GLuint init_shaders[2]; // vertex, fragment
+
+	init_shaders[0] = load_shader("shaders/init_particles.vert", GL_VERTEX_SHADER);
+	assert_or_cleanup(init_shaders[0] != 0, "Failed to load init vert shader", NULL);
+
+	init_shaders[1] = load_shader("shaders/init_particles.frag", GL_FRAGMENT_SHADER);
+	assert_or_cleanup(init_shaders[1] != 0, "Failed to load init frag shader", NULL);
+
+	const char *init_strings[] = { "init_home_pos", "init_speed", "init_current_pos" };
+	GLuint init_program = create_shader_program(2, init_shaders, 0, NULL, 3, init_strings);
+	assert_or_cleanup(init_program != 0, "Failed to create init program", gl_get_error_stringified);
 
 	GLuint shaders[2]; // vertex, fragment
 
@@ -517,14 +521,14 @@ int main(int argc, char *argv[])
 		GLuint tfbo;
 		glGenBuffers(1, &tfbo);
 		glBindBuffer(GL_ARRAY_BUFFER, tfbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(points), NULL, GL_STATIC_READ);
+		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_READ);
 
 		glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);
 
 		GLuint vbo;
 		glGenBuffers(1, &vbo);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat)  * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
 
 		GLint in_home_pos = glGetAttribLocation(program, "home_pos");
 		glEnableVertexAttribArray(in_home_pos);
@@ -539,6 +543,19 @@ int main(int argc, char *argv[])
 		glVertexAttribPointer(in_current_pos, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(4 * sizeof(GLfloat)));
 
 		glUniform3f(glGetUniformLocation(program, "vert_color"), 0.85, 1.0, 0.75);
+
+	glUseProgram(init_program);
+		glUniform1i(glGetUniformLocation(init_program, "width"), POINTS_W);
+		glUniform1i(glGetUniformLocation(init_program, "height"), POINTS_H);
+
+		glEnable(GL_RASTERIZER_DISCARD);
+		glBeginTransformFeedback(GL_POINTS);
+			glDrawArrays(GL_POINTS, 0, POINTS_W * POINTS_H);
+		glEndTransformFeedback();
+		glDisable(GL_RASTERIZER_DISCARD);
+		glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H);
+
+	glUseProgram(program);
 
 #ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(main_loop_emscripten, 0, EM_TRUE);
