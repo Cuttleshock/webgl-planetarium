@@ -8,7 +8,7 @@
 #endif
 
 #ifdef __EMSCRIPTEN__
-#include <GLES3/gl3.h>
+#include <webgl/webgl2.h>
 #else
 #include <glad/gl.h>
 #endif
