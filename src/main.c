@@ -1,7 +1,13 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
+#ifdef __WIN64__
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -120,7 +126,15 @@ SDL_bool have_webgl_2(const char *gl_version_str)
 SDL_bool get_executable_dir(char *buf, size_t bufsiz)
 {
 	SDL_bool success = SDL_TRUE;
-#ifdef __EMSCRIPTEN__
+#ifdef __WIN64__
+	DWORD getmodule_success = GetModuleFileNameA(NULL, buf, bufsiz);
+	if (getmodule_success == 0) {
+		success = SDL_FALSE;
+	} else {
+		char *last_slash = strrchr(buf, '\\');
+		*last_slash = 0;
+	}
+#elif defined __EMSCRIPTEN__
 	buf[0] = '.';
 	buf[1] = 0;
 #else
@@ -142,7 +156,11 @@ SDL_bool make_absolute_path(char *relative, char *buf, size_t bufsiz)
 		if (strlen(relative) + strlen(buf) + 2 > bufsiz) {
 			return SDL_FALSE;
 		} else {
+#ifdef __WIN64__
+			strcat(buf, "\\");
+#else
 			strcat(buf, "/");
+#endif
 			strcat(buf, relative);
 			return SDL_TRUE;
 		}
