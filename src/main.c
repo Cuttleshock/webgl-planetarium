@@ -374,7 +374,7 @@ void draw(void)
 
 void update_post_draw(Uint64 delta)
 {
-	// Other logic using updated positions
+	glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, sizeof(points));
 }
 
 SDL_bool main_loop(Uint64 delta)
@@ -478,12 +478,17 @@ int main(int argc, char *argv[])
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
+		GLuint tfbo;
+		glGenBuffers(1, &tfbo);
+		glBindBuffer(GL_ARRAY_BUFFER, tfbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(points), NULL, GL_STATIC_READ);
+
+		glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);
+
 		GLuint vbo;
 		glGenBuffers(1, &vbo);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_DYNAMIC_COPY);
-
-		glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, vbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
 
 		GLint in_home_pos = glGetAttribLocation(program, "home_pos");
 		glEnableVertexAttribArray(in_home_pos);
