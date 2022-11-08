@@ -251,6 +251,17 @@ void print_shader_log(GLuint shader)
 	my_free(log_buffer);
 }
 
+void print_program_log(GLuint program)
+{
+	GLint log_length;
+	glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_length);
+	char *log_buffer = my_malloc(log_length + 1);
+	log_buffer[log_length] = 0;
+	glGetProgramInfoLog(program, log_length, NULL, log_buffer);
+	printf("%s\n", log_buffer);
+	my_free(log_buffer);
+}
+
 // Return value: a shader handle, or 0 on failure
 GLuint load_shader(char *fname, GLenum shader_type)
 {
@@ -330,6 +341,13 @@ GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, cha
 	for (int i = 0; i < num_shaders; ++i) {
 		glDetachShader(program, shaders[i]);
 		glDeleteShader(shaders[i]);
+	}
+
+	GLint link_status;
+	glGetProgramiv(program, GL_LINK_STATUS, &link_status);
+	if (link_status != GL_TRUE) {
+		print_program_log(program);
+		return 0;
 	}
 
 	return program;
