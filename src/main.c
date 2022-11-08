@@ -368,14 +368,12 @@ void draw(void)
 	glBeginTransformFeedback(GL_POINTS);
 		glDrawArrays(GL_POINTS, 0, POINTS_W * POINTS_H);
 	glEndTransformFeedback();
-	g_transform_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
 	SDL_GL_SwapWindow(g_window);
 }
 
 void update_post_draw(Uint64 delta)
 {
-	glClientWaitSync(g_transform_fence, 0, 1000 * 1000 * 5); // 5 ms
 	// Other logic using updated positions
 }
 
