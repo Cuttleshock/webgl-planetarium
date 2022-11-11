@@ -1,7 +1,5 @@
 #version 300 es
 
-out vec3 frag_color;
-
 out vec2 init_home_pos;
 out vec2 init_speed;
 out vec2 init_current_pos;
