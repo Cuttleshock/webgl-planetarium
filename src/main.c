@@ -48,17 +48,9 @@ GLuint g_physics_vbo;
 GLuint g_draw_program;
 GLuint g_physics_program;
 
-GLfloat g_circle_verts[] = { // as GL_TRIANGLE_FAN
-	0.0, 0.0,
-	1.0, 1.0,
-	1.0, -1.0,
-	-1.0, -1.0,
-	-1.0, 1.0,
-	1.0, 1.0,
-};
-
 #define POINTS_W 10
 #define POINTS_H 6
+#define CIRCLE_SIDES 10
 
 void *my_malloc(size_t size)
 {
@@ -432,7 +424,7 @@ void draw(void)
 
 	glBindVertexArray(g_draw_vao);
 	glUseProgram(g_draw_program);
-		glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, sizeof(g_circle_verts) / (sizeof(g_circle_verts[0]) * 2), POINTS_W * POINTS_H);
+		glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, CIRCLE_SIDES + 2, POINTS_W * POINTS_H);
 
 	SDL_GL_SwapWindow(g_window);
 }
@@ -528,7 +520,7 @@ int main(int argc, char *argv[])
 
 	glGenBuffers(1, &g_circle_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_circle_verts), g_circle_verts, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(float) * (CIRCLE_SIDES + 2), NULL, GL_STATIC_DRAW);
 
 	glGenBuffers(1, &g_physics_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
@@ -559,8 +551,27 @@ int main(int argc, char *argv[])
 			glEndTransformFeedback();
 		glDisable(GL_RASTERIZER_DISCARD);
 
-		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H);
+	GLuint circle_shaders[2]; // vertex, fragment
+
+	circle_shaders[0] = load_shader("shaders/init_circle.vert", GL_VERTEX_SHADER);
+	assert_or_cleanup(circle_shaders[0] != 0, "Failed to load circle init vert shader", NULL);
+
+	circle_shaders[1] = load_shader("shaders/init_circle.frag", GL_FRAGMENT_SHADER);
+	assert_or_cleanup(circle_shaders[1] != 0, "Failed to load circle init frag shader", NULL);
+
+	const char *init_circle_tfs[] = { "position" };
+	GLuint init_circle_program = create_shader_program(2, circle_shaders, 0, NULL, 1, init_circle_tfs);
+	assert_or_cleanup(init_circle_program != 0, "Failed to create circle init program", gl_get_error_stringified);
+
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, g_circle_vbo);
+	glUseProgram(init_circle_program);
+		glUniform1i(glGetUniformLocation(init_circle_program, "num_sides"), CIRCLE_SIDES);
+
+		glEnable(GL_RASTERIZER_DISCARD);
+			glBeginTransformFeedback(GL_POINTS);
+				glDrawArrays(GL_POINTS, 0, CIRCLE_SIDES + 2);
+			glEndTransformFeedback();
+		glDisable(GL_RASTERIZER_DISCARD);
 
 	GLuint draw_shaders[2]; // vertex, fragment
 
