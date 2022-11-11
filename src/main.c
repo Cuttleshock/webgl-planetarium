@@ -525,7 +525,6 @@ int main(int argc, char *argv[])
 	glGenBuffers(1, &tfbo);
 	glBindBuffer(GL_ARRAY_BUFFER, tfbo);
 	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_DYNAMIC_COPY);
-	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);
 
 	glGenBuffers(1, &g_circle_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
@@ -535,7 +534,7 @@ int main(int argc, char *argv[])
 	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
 	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0); // Prevent writing to currently-bound VBO
 
 	GLuint init_shaders[2]; // vertex, fragment
 
@@ -549,6 +548,7 @@ int main(int argc, char *argv[])
 	GLuint init_program = create_shader_program(2, init_shaders, 0, NULL, 3, init_strings);
 	assert_or_cleanup(init_program != 0, "Failed to create init program", gl_get_error_stringified);
 
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, g_physics_vbo);
 	glUseProgram(init_program);
 		glUniform1i(glGetUniformLocation(init_program, "width"), POINTS_W);
 		glUniform1i(glGetUniformLocation(init_program, "height"), POINTS_H);
@@ -618,6 +618,9 @@ int main(int argc, char *argv[])
 			glVertexAttribPointer(in_home_pos, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
 			glVertexAttribPointer(in_speed, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 			glVertexAttribPointer(in_current_pos, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(4 * sizeof(GLfloat)));
+
+	// This is here to stay for the rest of the program
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);
 
 #ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(main_loop_emscripten, 0, EM_TRUE);
