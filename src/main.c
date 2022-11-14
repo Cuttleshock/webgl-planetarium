@@ -420,7 +420,7 @@ void draw(void)
 		glDisable(GL_RASTERIZER_DISCARD);
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 4 * sizeof(GLfloat) * POINTS_W * POINTS_H);
+			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 8 * sizeof(GLfloat) * POINTS_W * POINTS_H);
 
 	glBindVertexArray(g_draw_vao);
 	glUseProgram(g_draw_program);
@@ -516,7 +516,7 @@ int main(int argc, char *argv[])
 	GLuint tfbo;
 	glGenBuffers(1, &tfbo);
 	glBindBuffer(GL_ARRAY_BUFFER, tfbo);
-	glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_DYNAMIC_COPY);
+	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_DYNAMIC_COPY);
 
 	glGenBuffers(1, &g_circle_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
@@ -524,7 +524,7 @@ int main(int argc, char *argv[])
 
 	glGenBuffers(1, &g_physics_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-	glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // Prevent writing to currently-bound VBO
 
@@ -536,8 +536,8 @@ int main(int argc, char *argv[])
 	init_shaders[1] = load_shader("shaders/init_particles.frag", GL_FRAGMENT_SHADER);
 	assert_or_cleanup(init_shaders[1] != 0, "Failed to load init frag shader", NULL);
 
-	const char *init_strings[] = { "init_speed", "init_current_pos" };
-	GLuint init_program = create_shader_program(2, init_shaders, 0, NULL, 2, init_strings);
+	const char *init_strings[] = { "init_speed", "init_current_pos", "init_color" };
+	GLuint init_program = create_shader_program(2, init_shaders, 0, NULL, 3, init_strings);
 	assert_or_cleanup(init_program != 0, "Failed to create init program", gl_get_error_stringified);
 
 	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, g_physics_vbo);
@@ -587,20 +587,22 @@ int main(int argc, char *argv[])
 
 	glUseProgram(g_draw_program);
 	glBindVertexArray(g_draw_vao);
-		glUniform3f(glGetUniformLocation(g_draw_program, "vert_color"), 0.85, 1.0, 0.75);
-
 		GLint in_vertex = glGetAttribLocation(g_draw_program, "vert_displacement");
 		GLint in_current_pos_draw = glGetAttribLocation(g_draw_program, "current_pos");
+		GLint in_color_draw = glGetAttribLocation(g_draw_program, "color");
 
 		glEnableVertexAttribArray(in_vertex);
 		glEnableVertexAttribArray(in_current_pos_draw);
 		glVertexAttribDivisor(in_current_pos_draw, 1);
+		glEnableVertexAttribArray(in_color_draw);
+		glVertexAttribDivisor(in_color_draw, 1);
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
 			glVertexAttribPointer(in_vertex, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glVertexAttribPointer(in_current_pos_draw, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+			glVertexAttribPointer(in_current_pos_draw, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+			glVertexAttribPointer(in_color_draw, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(4 * sizeof(GLfloat)));
 
 	GLuint physics_shaders[2]; // vertex, fragment
 
@@ -610,8 +612,8 @@ int main(int argc, char *argv[])
 	physics_shaders[1] = load_shader("shaders/update_particles.frag", GL_FRAGMENT_SHADER);
 	assert_or_cleanup(physics_shaders[1] != 0, "Failed to load update fragment shader", NULL);
 
-	const char *transforms[] = { "speed_feedback", "current_pos_feedback" };
-	g_physics_program = create_shader_program(2, physics_shaders, 0, NULL, 2, transforms);
+	const char *transforms[] = { "speed_feedback", "current_pos_feedback", "color_feedback" };
+	g_physics_program = create_shader_program(2, physics_shaders, 0, NULL, 3, transforms);
 	assert_or_cleanup(g_physics_program != 0, "Failed to create update shader program", gl_get_error_stringified);
 	g_mouse_uniform = glGetUniformLocation(g_physics_program, "mouse_pos");
 
@@ -619,13 +621,16 @@ int main(int argc, char *argv[])
 	glBindVertexArray(g_physics_vao);
 		GLint in_speed = glGetAttribLocation(g_physics_program, "speed");
 		GLint in_current_pos = glGetAttribLocation(g_physics_program, "current_pos");
+		GLint in_color = glGetAttribLocation(g_physics_program, "color");
 
 		glEnableVertexAttribArray(in_speed);
 		glEnableVertexAttribArray(in_current_pos);
+		glEnableVertexAttribArray(in_color);
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glVertexAttribPointer(in_speed, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
-			glVertexAttribPointer(in_current_pos, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+			glVertexAttribPointer(in_speed, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
+			glVertexAttribPointer(in_current_pos, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+			glVertexAttribPointer(in_color, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(4 * sizeof(GLfloat)));
 
 	// This is here to stay for the rest of the program
 	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);

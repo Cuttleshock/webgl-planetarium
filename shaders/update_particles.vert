@@ -2,9 +2,11 @@
 
 in vec2 speed;
 in vec2 current_pos;
+in vec4 color;
 
 out vec2 speed_feedback;
 out vec2 current_pos_feedback;
+out vec4 color_feedback;
 
 uniform vec2 mouse_pos;
 
@@ -27,4 +29,5 @@ void main()
 
 	speed_feedback = (speed + accel * time_step) * damping;
 	current_pos_feedback = current_pos + speed;
+	color_feedback = color;
 }
