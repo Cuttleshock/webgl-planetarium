@@ -662,7 +662,9 @@ int main(int argc, char *argv[])
 		recent_total -= recent_delays[frame_number];
 		recent_delays[frame_number] = f1_end - f1_start;
 		recent_total += recent_delays[frame_number];
-		printf("%2.2f FPS\n", (1000.0 * (float) FPS_CAP) / ((float) recent_total));
+		if (frame_number == 0) {
+			printf("%2.2f FPS\n", (1000.0 * (float) FPS_CAP) / ((float) recent_total));
+		}
 		frame_number = (frame_number + 1) % FPS_CAP;
 #endif
 		if (f2_start > f1_end) {
