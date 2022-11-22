@@ -82,6 +82,19 @@
             }
           };
         })(),
+        printErr: (function() {
+          var element = document.getElementById('output');
+          return function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.error(text);
+            if (element) {
+              // Strip colour codes
+              text = text.replace(/\x1B\[(0|3[1-7])m/g, "");
+              element.value += "ERROR: " + text + "\n";
+              element.scrollTop = element.scrollHeight; // focus on bottom
+            }
+          };
+        })(),
         canvas: (function() {
           var canvas = document.getElementById('canvas');
 
