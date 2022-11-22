@@ -114,8 +114,8 @@ $(DLLS_WIN) : $(BUILD_DIR_WIN)/% : $(SYSROOT_WIN)/bin/%
 
 web : $(EXE_WEB) $(BUILD_DIR_WEB)/$(LICENSE) $(ASSETS_DATA_WEB) $(ASSETS_JS_WEB)
 
-$(EXE_WEB) : $(OBJECTS_WEB)
-	emcc $^ -o $@ $(LINK_FLAGS)
+$(EXE_WEB) : $(OBJECTS_WEB) $(SHELL_FILE_WEB)
+	emcc $(OBJECTS_WEB) -o $@ $(LINK_FLAGS)
 
 $(OBJECTS_WEB) : $(BUILD_DIR_WEB)/$(OBJECT_DIR)/%.o : $(SOURCE_DIR)/%.c
 	mkdir -p $(@D)
