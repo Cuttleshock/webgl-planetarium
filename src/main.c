@@ -635,6 +635,48 @@ int main(int argc, char *argv[])
 	// This is here to stay for the rest of the program
 	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);
 
+	GLuint init_tex_position_shaders[2]; // vertex, fragment
+
+	init_tex_position_shaders[0] = load_shader("shaders/quad.vert", GL_VERTEX_SHADER);
+	assert_or_cleanup(init_tex_position_shaders[0] != 0, "Failed to load quad.vert", NULL);
+
+	init_tex_position_shaders[1] = load_shader("shaders/init_particles_tex.frag", GL_FRAGMENT_SHADER);
+	assert_or_cleanup(init_tex_position_shaders[1] != 0, "Failed to load init_particles_tex.frag", NULL);
+
+	char *init_tex_position_out = "out_position";
+	GLuint init_tex_position_program = create_shader_program(2, init_tex_position_shaders, 1, &init_tex_position_out, 0, NULL);
+	assert_or_cleanup(init_tex_position_program != 0, "Failed to link quad.vert and init_particles_tex.frag", gl_get_error_stringified);
+
+	// Flat 1 * n texture of all planet positions
+	GLuint position_texture;
+	glGenTextures(1, &position_texture);
+
+	glBindTexture(GL_TEXTURE_2D, position_texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, POINTS_W * POINTS_H, 1, 0, GL_RG, GL_FLOAT, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	GLuint position_framebuffer;
+	glGenFramebuffers(1, &position_framebuffer);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, position_framebuffer);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, position_texture, 0);
+		assert_or_cleanup(
+			glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE,
+			"Planet position framebuffer incomplete",
+			gl_get_error_stringified
+		);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glUseProgram(init_tex_position_program);
+	glBindFramebuffer(GL_FRAMEBUFFER, position_framebuffer);
+	// Need a valid VAO but doesn't matter which
+		glUniform1i(glGetUniformLocation(init_tex_position_program, "width"), POINTS_W);
+		glUniform1i(glGetUniformLocation(init_tex_position_program, "height"), POINTS_H);
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
 #ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(main_loop_emscripten, 0, EM_TRUE);
 #else
