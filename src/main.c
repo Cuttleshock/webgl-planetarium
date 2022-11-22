@@ -80,7 +80,7 @@ void assert_or_debug(SDL_bool assertion, char *msg, const char *(*error_getter) 
 {
 #ifdef DEBUG
 	if (!assertion) {
-		printf("%s: %s\n", msg, error_getter ? error_getter() : "(no debug info)");
+		printf(BLU "%s: %s\n" COLOR_RESET, msg, error_getter ? error_getter() : "(no debug info)");
 	}
 #endif
 }
@@ -92,12 +92,12 @@ void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter
 		char *full_msg = my_malloc(strlen(msg) + strlen(error_msg) + 3);
 		sprintf(full_msg, "%s: %s", msg, error_msg);
 #ifdef DEBUG
-		fprintf(stderr, "%s\n", full_msg);
+		fprintf(stderr, RED "%s\n" COLOR_RESET, full_msg);
 #else
 		if (g_window) {
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error: closing program", full_msg, g_window);
 		} else {
-			fprintf(stderr, "%s\n", full_msg);
+			fprintf(stderr, RED "%s\n" COLOR_RESET, full_msg);
 		}
 #endif
 		my_free(full_msg);
