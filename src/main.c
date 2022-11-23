@@ -45,12 +45,18 @@ GLuint g_physics_vao;
 GLuint g_circle_vbo;
 GLuint g_physics_vbo;
 
+GLuint g_position_framebuffer[2];
+GLuint g_position_texture[2];
+int g_position_framebuffer_active = 0;
+
 GLuint g_draw_program;
 GLuint g_physics_program;
+GLuint g_interaction_program;
 
 #define POINTS_W 10
 #define POINTS_H 6
 #define CIRCLE_SIDES 10
+#define POSITION_TEX_UNIT_OFFSET 0
 
 void *my_malloc(size_t size)
 {
@@ -409,21 +415,29 @@ SDL_bool update(Uint64 delta)
 void draw(void)
 {
 	glClearColor(0.15, 0.1, 0.3, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+	// Bind last frame's position texture to uniform slot
+	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
+		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
 
 	glBindVertexArray(g_physics_vao);
 	glUseProgram(g_physics_program);
-		glEnable(GL_RASTERIZER_DISCARD);
-			glBeginTransformFeedback(GL_POINTS);
-				glDrawArrays(GL_POINTS, 0, POINTS_W * POINTS_H);
-			glEndTransformFeedback();
-		glDisable(GL_RASTERIZER_DISCARD);
+	g_position_framebuffer_active = (g_position_framebuffer_active + 1) % 2;
+	glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[g_position_framebuffer_active]);
+	glViewport(0, 0, POINTS_W * POINTS_H, 1);
+		glBeginTransformFeedback(GL_POINTS);
+			glDrawArrays(GL_POINTS, 0, POINTS_W * POINTS_H);
+		glEndTransformFeedback();
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 8 * sizeof(GLfloat) * POINTS_W * POINTS_H);
+			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H);
 
 	glBindVertexArray(g_draw_vao);
 	glUseProgram(g_draw_program);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, WINDOW_W, WINDOW_H);
 		glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, CIRCLE_SIDES + 2, POINTS_W * POINTS_H);
 
 	SDL_GL_SwapWindow(g_window);
@@ -516,7 +530,7 @@ int main(int argc, char *argv[])
 	GLuint tfbo;
 	glGenBuffers(1, &tfbo);
 	glBindBuffer(GL_ARRAY_BUFFER, tfbo);
-	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_DYNAMIC_COPY);
+	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_DYNAMIC_COPY);
 
 	glGenBuffers(1, &g_circle_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
@@ -524,7 +538,7 @@ int main(int argc, char *argv[])
 
 	glGenBuffers(1, &g_physics_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // Prevent writing to currently-bound VBO
 
@@ -536,15 +550,12 @@ int main(int argc, char *argv[])
 	init_shaders[1] = load_shader("shaders/init_particles.frag", GL_FRAGMENT_SHADER);
 	assert_or_cleanup(init_shaders[1] != 0, "Failed to load init frag shader", NULL);
 
-	const char *init_strings[] = { "init_speed", "init_current_pos", "init_color" };
-	GLuint init_program = create_shader_program(2, init_shaders, 0, NULL, 3, init_strings);
+	const char *init_strings[] = { "init_speed", "init_color" };
+	GLuint init_program = create_shader_program(2, init_shaders, 0, NULL, 2, init_strings);
 	assert_or_cleanup(init_program != 0, "Failed to create init program", gl_get_error_stringified);
 
 	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, g_physics_vbo);
 	glUseProgram(init_program);
-		glUniform1i(glGetUniformLocation(init_program, "width"), POINTS_W);
-		glUniform1i(glGetUniformLocation(init_program, "height"), POINTS_H);
-
 		glEnable(GL_RASTERIZER_DISCARD);
 			glBeginTransformFeedback(GL_POINTS);
 				glDrawArrays(GL_POINTS, 0, POINTS_W * POINTS_H);
@@ -587,13 +598,12 @@ int main(int argc, char *argv[])
 
 	glUseProgram(g_draw_program);
 	glBindVertexArray(g_draw_vao);
+		glUniform1i(glGetUniformLocation(g_draw_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+
 		GLint in_vertex = glGetAttribLocation(g_draw_program, "vert_displacement");
-		GLint in_current_pos_draw = glGetAttribLocation(g_draw_program, "current_pos");
 		GLint in_color_draw = glGetAttribLocation(g_draw_program, "color");
 
 		glEnableVertexAttribArray(in_vertex);
-		glEnableVertexAttribArray(in_current_pos_draw);
-		glVertexAttribDivisor(in_current_pos_draw, 1);
 		glEnableVertexAttribArray(in_color_draw);
 		glVertexAttribDivisor(in_color_draw, 1);
 
@@ -601,8 +611,7 @@ int main(int argc, char *argv[])
 			glVertexAttribPointer(in_vertex, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glVertexAttribPointer(in_current_pos_draw, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
-			glVertexAttribPointer(in_color_draw, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(4 * sizeof(GLfloat)));
+			glVertexAttribPointer(in_color_draw, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 
 	GLuint physics_shaders[2]; // vertex, fragment
 
@@ -612,25 +621,26 @@ int main(int argc, char *argv[])
 	physics_shaders[1] = load_shader("shaders/update_particles.frag", GL_FRAGMENT_SHADER);
 	assert_or_cleanup(physics_shaders[1] != 0, "Failed to load update fragment shader", NULL);
 
-	const char *transforms[] = { "speed_feedback", "current_pos_feedback", "color_feedback" };
-	g_physics_program = create_shader_program(2, physics_shaders, 0, NULL, 3, transforms);
+	char *outs_update = "out_position";
+	const char *transforms[] = { "speed_feedback", "color_feedback" };
+	g_physics_program = create_shader_program(2, physics_shaders, 1, &outs_update, 2, transforms);
 	assert_or_cleanup(g_physics_program != 0, "Failed to create update shader program", gl_get_error_stringified);
 	g_mouse_uniform = glGetUniformLocation(g_physics_program, "mouse_pos");
 
 	glUseProgram(g_physics_program);
 	glBindVertexArray(g_physics_vao);
+		glUniform1i(glGetUniformLocation(g_physics_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+		glUniform1f(glGetUniformLocation(g_physics_program, "num_planets"), (GLfloat)(POINTS_W * POINTS_H));
+
 		GLint in_speed = glGetAttribLocation(g_physics_program, "speed");
-		GLint in_current_pos = glGetAttribLocation(g_physics_program, "current_pos");
 		GLint in_color = glGetAttribLocation(g_physics_program, "color");
 
 		glEnableVertexAttribArray(in_speed);
-		glEnableVertexAttribArray(in_current_pos);
 		glEnableVertexAttribArray(in_color);
 
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glVertexAttribPointer(in_speed, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
-			glVertexAttribPointer(in_current_pos, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
-			glVertexAttribPointer(in_color, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void *)(4 * sizeof(GLfloat)));
+			glVertexAttribPointer(in_speed, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
+			glVertexAttribPointer(in_color, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 
 	// This is here to stay for the rest of the program
 	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);
@@ -647,30 +657,29 @@ int main(int argc, char *argv[])
 	GLuint init_tex_position_program = create_shader_program(2, init_tex_position_shaders, 1, &init_tex_position_out, 0, NULL);
 	assert_or_cleanup(init_tex_position_program != 0, "Failed to link quad.vert and init_particles_tex.frag", gl_get_error_stringified);
 
-	// Flat 1 * n texture of all planet positions
-	GLuint position_texture;
-	glGenTextures(1, &position_texture);
+	// Flat n * 1 texture of all planet positions
+	glGenTextures(2, g_position_texture);
+	glGenFramebuffers(2, g_position_framebuffer);
 
-	glBindTexture(GL_TEXTURE_2D, position_texture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, POINTS_W * POINTS_H, 1, 0, GL_RG, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	for (int i = 0; i < 2; ++i) {
+		glBindTexture(GL_TEXTURE_2D, g_position_texture[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, POINTS_W * POINTS_H, 1, 0, GL_RG, GL_FLOAT, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glBindTexture(GL_TEXTURE_2D, 0);
 
-	GLuint position_framebuffer;
-	glGenFramebuffers(1, &position_framebuffer);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, position_framebuffer);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, position_texture, 0);
-		assert_or_cleanup(
-			glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE,
-			"Planet position framebuffer incomplete",
-			gl_get_error_stringified
-		);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[i]);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_position_texture[i], 0);
+			assert_or_cleanup(
+				glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE,
+				"Planet position framebuffer incomplete",
+				gl_get_error_stringified
+			);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
 
 	glUseProgram(init_tex_position_program);
-	glBindFramebuffer(GL_FRAMEBUFFER, position_framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[0]);
 	// Need a valid VAO but doesn't matter which
 		glUniform1i(glGetUniformLocation(init_tex_position_program, "width"), POINTS_W);
 		glUniform1i(glGetUniformLocation(init_tex_position_program, "height"), POINTS_H);

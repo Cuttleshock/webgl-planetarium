@@ -1,14 +1,14 @@
 #version 300 es
 
 in vec2 speed;
-in vec2 current_pos;
 in vec4 color;
 
 out vec2 speed_feedback;
-out vec2 current_pos_feedback;
 out vec4 color_feedback;
 
 uniform vec2 mouse_pos;
+uniform float num_planets;
+uniform sampler2D positions;
 
 const float mouse_m = 0.5; // Mass of mouse gravity well
 const float mouse_r = 0.1; // Radius (below which gravity is ignored, preventing accumulation)
@@ -18,6 +18,8 @@ const float damping = 0.99; // Prevent the system from accumulating energy
 
 void main()
 {
+	vec2 current_pos = texelFetch(positions, ivec2(gl_VertexID, 0), 0).xy;
+
 	vec2 to_mouse = mouse_pos - current_pos;
 	float to_mouse_r = length(to_mouse);
 	vec2 to_mouse_dir = to_mouse / to_mouse_r;
@@ -28,6 +30,7 @@ void main()
 	}
 
 	speed_feedback = (speed + accel * time_step) * damping;
-	current_pos_feedback = current_pos + speed;
 	color_feedback = color;
+
+	gl_Position = vec4(float(gl_VertexID) * 2.0 / num_planets - 1.0, 0.0, 0.0, 1.0);
 }
