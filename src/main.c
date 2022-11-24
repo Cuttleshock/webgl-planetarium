@@ -465,15 +465,10 @@ void draw(void)
 	SDL_GL_SwapWindow(g_window);
 }
 
-void update_post_draw(Uint64 delta)
-{
-}
-
 SDL_bool main_loop(Uint64 delta)
 {
 	SDL_bool loop_done = update(delta);
 	draw();
-	update_post_draw(delta);
 	return loop_done;
 }
 
@@ -552,15 +547,15 @@ int main(int argc, char *argv[])
 	GLuint tfbo;
 	glGenBuffers(1, &tfbo);
 	glBindBuffer(GL_ARRAY_BUFFER, tfbo);
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_DYNAMIC_COPY);
+		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_DYNAMIC_COPY);
 
 	glGenBuffers(1, &g_circle_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
-	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(float) * (CIRCLE_SIDES + 2), NULL, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(float) * (CIRCLE_SIDES + 2), NULL, GL_STATIC_DRAW);
 
 	glGenBuffers(1, &g_physics_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * POINTS_W * POINTS_H, NULL, GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // Prevent writing to currently-bound VBO
 
