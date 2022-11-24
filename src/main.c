@@ -48,14 +48,23 @@ GLuint g_position_framebuffer[2];
 GLuint g_position_texture[2];
 int g_position_framebuffer_active = 0;
 
+GLuint g_attraction_texture[2];
+GLuint g_attraction_framebuffer[2];
+int g_attraction_framebuffer_active = 0;
+
 GLuint g_draw_program;
 GLuint g_physics_program;
-GLuint g_interaction_program;
+GLuint g_attraction_program;
+GLuint g_fold_program;
 
 #define POINTS_W 10
 #define POINTS_H 6
 #define CIRCLE_SIDES 10
+// Used together, so have to be distinct
 #define POSITION_TEX_UNIT_OFFSET 0
+#define ATTRACTION_TEX_UNIT_OFFSET 1
+// Used in a separate shader
+#define FOLD_TEX_UNIT_OFFSET 0
 
 void *my_malloc(size_t size)
 {
@@ -404,9 +413,36 @@ void draw(void)
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 
+	// Calculate all attractions between planets
+	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
+		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
+
+	glUseProgram(g_attraction_program);
+	glBindFramebuffer(GL_FRAMEBUFFER, g_attraction_framebuffer[0]);
+	glViewport(0, 0, POINTS_W * POINTS_H, POINTS_W * POINTS_H);
+	// Need a valid VAO but doesn't matter which
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	// Fold attractions into flat texture
+	glUseProgram(g_fold_program);
+		for (int fold_factor = 4; fold_factor < POINTS_W * POINTS_H * 4; fold_factor *= 4) {
+			glActiveTexture(GL_TEXTURE0 + FOLD_TEX_UNIT_OFFSET);
+				glBindTexture(GL_TEXTURE_2D, g_attraction_texture[g_attraction_framebuffer_active]);
+
+			g_attraction_framebuffer_active = (g_attraction_framebuffer_active + 1) % 2;
+
+			glBindFramebuffer(GL_FRAMEBUFFER, g_attraction_framebuffer[g_attraction_framebuffer_active]);
+			glViewport(0, 0, (POINTS_W * POINTS_H + fold_factor - 1) / fold_factor, POINTS_W * POINTS_H);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+		}
+
 	// Bind last frame's position texture to uniform slot
 	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
 		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
+
+	// Bind flat attractions to uniform slot
+	glActiveTexture(GL_TEXTURE0 + ATTRACTION_TEX_UNIT_OFFSET);
+		glBindTexture(GL_TEXTURE_2D, g_attraction_texture[g_attraction_framebuffer_active]);
 
 	glBindVertexArray(g_physics_vao);
 	glUseProgram(g_physics_program);
@@ -615,6 +651,7 @@ int main(int argc, char *argv[])
 	glUseProgram(g_physics_program);
 	glBindVertexArray(g_physics_vao);
 		glUniform1i(glGetUniformLocation(g_physics_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+		glUniform1i(glGetUniformLocation(g_physics_program, "attractions"), ATTRACTION_TEX_UNIT_OFFSET);
 		glUniform1f(glGetUniformLocation(g_physics_program, "num_planets"), (GLfloat)(POINTS_W * POINTS_H));
 
 		GLint in_speed = glGetAttribLocation(g_physics_program, "speed");
@@ -670,6 +707,57 @@ int main(int argc, char *argv[])
 		glUniform1i(glGetUniformLocation(init_tex_position_program, "height"), POINTS_H);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	GLuint attraction_shaders[2]; // vertex, fragment
+
+	attraction_shaders[0] = load_shader("shaders/quad.vert", GL_VERTEX_SHADER);
+	assert_or_cleanup(attraction_shaders[0] != 0, "Failed to load quad.vert", NULL);
+
+	attraction_shaders[1] = load_shader("shaders/calc_particle_attractions.frag", GL_FRAGMENT_SHADER);
+	assert_or_cleanup(attraction_shaders[1] != 0, "Failed to load calc_particle_attractions.frag", NULL);
+
+	char *attraction_out = "out_distance";
+	g_attraction_program = create_shader_program(2, attraction_shaders, 1, &attraction_out, 0, NULL);
+	assert_or_cleanup(g_attraction_program != 0, "Failed to link quad.vert and calc_particle_attractions.frag", gl_get_error_stringified);
+
+	glUseProgram(g_attraction_program);
+		glUniform1i(glGetUniformLocation(g_attraction_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+
+	// n * n array of all planet pairs, with second for double-buffered summing
+	glGenTextures(2, g_attraction_texture);
+	glGenFramebuffers(2, g_attraction_framebuffer);
+
+	for (int i = 0; i < 2; ++i) {
+		glBindTexture(GL_TEXTURE_2D, g_attraction_texture[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, POINTS_W * POINTS_H, POINTS_W * POINTS_H, 0, GL_RG, GL_FLOAT, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, g_attraction_framebuffer[i]);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_attraction_texture[i], 0);
+			assert_or_cleanup(
+				glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE,
+				"Attraction matrix framebuffer incomplete",
+				gl_get_error_stringified
+			);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
+	GLuint fold_shaders[2];
+
+	fold_shaders[0] = load_shader("shaders/quad.vert", GL_VERTEX_SHADER);
+	assert_or_cleanup(fold_shaders[0] != 0, "Failed to load quad.vert", NULL);
+
+	fold_shaders[1] = load_shader("shaders/fold_texture.frag", GL_FRAGMENT_SHADER);
+	assert_or_cleanup(fold_shaders[1] != 0, "Failed to load fold_texture.frag", NULL);
+
+	char *fold_out = "out_sum";
+	g_fold_program = create_shader_program(2, fold_shaders, 1, &fold_out, 0, NULL);
+	assert_or_cleanup(g_fold_program != 0, "Failed to link quad.vert and fold_texture.frag", gl_get_error_stringified);
+
+	glUseProgram(g_fold_program);
+		glUniform1i(glGetUniformLocation(g_fold_program, "inputs"), FOLD_TEX_UNIT_OFFSET);
 
 #ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(main_loop_emscripten, 0, EM_TRUE);

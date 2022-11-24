@@ -28,6 +28,8 @@ SHADERS = shaders/particles.vert shaders/particles.frag \
 	shaders/init_particles.vert shaders/init_particles.frag \
 	shaders/update_particles.vert shaders/update_particles.frag \
 	shaders/quad.vert \
+	shaders/calc_particle_attractions.frag \
+	shaders/fold_texture.frag \
 	shaders/init_particles_tex.frag \
 	shaders/init_circle.vert shaders/init_circle.frag
 LICENSE = LICENSE.md
