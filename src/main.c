@@ -37,7 +37,6 @@
 SDL_Window *g_window;
 SDL_GLContext g_glcontext;
 GLsync g_transform_fence;
-GLuint g_mouse_uniform;
 
 GLuint g_draw_vao;
 GLuint g_physics_vao;
@@ -375,16 +374,6 @@ void push_quit_event(void)
 	SDL_PushEvent(&quit_event);
 }
 
-void update_mouse_position(void)
-{
-	int x, y;
-	SDL_GetMouseState(&x, &y);
-	GLfloat x_screenspace = ((GLfloat) 2.0 * x / (GLfloat) WINDOW_W) - 1.0;
-	GLfloat y_screenspace = 1.0 - ((GLfloat) 2.0 * y / (GLfloat) WINDOW_H);
-	glUseProgram(g_physics_program);
-		glUniform2f(g_mouse_uniform, x_screenspace, y_screenspace);
-}
-
 SDL_bool update(Uint64 delta)
 {
 	SDL_Event e;
@@ -400,9 +389,6 @@ SDL_bool update(Uint64 delta)
 					default:
 						break;
 				}
-				break;
-			case SDL_MOUSEMOTION:
-				update_mouse_position();
 				break;
 			default:
 				break;
@@ -625,7 +611,6 @@ int main(int argc, char *argv[])
 	const char *transforms[] = { "speed_feedback", "color_feedback" };
 	g_physics_program = create_shader_program(2, physics_shaders, 1, &outs_update, 2, transforms);
 	assert_or_cleanup(g_physics_program != 0, "Failed to create update shader program", gl_get_error_stringified);
-	g_mouse_uniform = glGetUniformLocation(g_physics_program, "mouse_pos");
 
 	glUseProgram(g_physics_program);
 	glBindVertexArray(g_physics_vao);
