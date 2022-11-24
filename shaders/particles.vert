@@ -4,10 +4,9 @@ in vec2 vert_displacement;
 in vec4 color;
 
 uniform sampler2D positions;
+uniform float planet_r; // Radius of each planet relative to screen
 
 out vec4 frag_color;
-
-const float planet_r = 0.02; // Radius of each planet relative to screen
 
 void main()
 {

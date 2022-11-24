@@ -59,6 +59,7 @@ GLuint g_fold_program;
 
 #define POINTS_W 10
 #define POINTS_H 6
+#define POINT_RADIUS 0.02
 #define CIRCLE_SIDES 10
 // Used together, so have to be distinct
 #define POSITION_TEX_UNIT_OFFSET 0
@@ -616,6 +617,7 @@ int main(int argc, char *argv[])
 	glUseProgram(g_draw_program);
 	glBindVertexArray(g_draw_vao);
 		glUniform1i(glGetUniformLocation(g_draw_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+		glUniform1f(glGetUniformLocation(g_draw_program, "planet_r"), POINT_RADIUS);
 
 		GLint in_vertex = glGetAttribLocation(g_draw_program, "vert_displacement");
 		GLint in_color_draw = glGetAttribLocation(g_draw_program, "color");
@@ -717,6 +719,7 @@ int main(int argc, char *argv[])
 
 	glUseProgram(g_attraction_program);
 		glUniform1i(glGetUniformLocation(g_attraction_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+		glUniform1f(glGetUniformLocation(g_attraction_program, "planet_r"), POINT_RADIUS);
 
 	// n * n array of all planet pairs, with second for double-buffered summing
 	glGenTextures(2, g_attraction_texture);

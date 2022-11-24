@@ -1,11 +1,11 @@
 #version 300 es
 
 uniform sampler2D positions;
+uniform mediump float planet_r;
 
 out mediump vec2 out_attraction;
 
 const mediump float gravitational_constant = 0.01;
-const mediump float planet_r = 0.02;
 
 void main()
 {
