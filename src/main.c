@@ -443,10 +443,10 @@ SDL_bool update(Uint64 delta)
 				break;
 			case SDL_MOUSEBUTTONDOWN:
 				switch (e.button.button) {
-					case SDL_BUTTON_LEFT:
+					case SDL_BUTTON_RIGHT:
 						create_random_planet(e.button.x + g_camera[0], e.button.y + g_camera[1]);
 						break;
-					case SDL_BUTTON_RIGHT:
+					case SDL_BUTTON_LEFT:
 						g_dragging_camera = SDL_TRUE;
 						break;
 					default:
@@ -455,7 +455,7 @@ SDL_bool update(Uint64 delta)
 				break;
 			case SDL_MOUSEBUTTONUP:
 				switch (e.button.button) {
-					case SDL_BUTTON_RIGHT:
+					case SDL_BUTTON_LEFT:
 						g_dragging_camera = SDL_FALSE;
 						break;
 					default:
