@@ -457,6 +457,7 @@ void draw(void)
 {
 	glClearColor(0.15, 0.1, 0.3, 1.0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, WINDOW_W, WINDOW_H);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 	// Calculate all attractions between planets
@@ -464,7 +465,7 @@ void draw(void)
 		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
 
 	glUseProgram(g_attraction_program);
-	glBindFramebuffer(GL_FRAMEBUFFER, g_attraction_framebuffer[0]);
+	glBindFramebuffer(GL_FRAMEBUFFER, g_attraction_framebuffer[g_attraction_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, g_num_planets);
 	// Need a valid VAO but doesn't matter which
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -608,8 +609,6 @@ int main(int argc, char *argv[])
 	glGenBuffers(1, &g_physics_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
 		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, zeroes, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0); // Prevent writing to currently-bound VBO
 
 	GLuint circle_shaders[2]; // vertex, fragment
 
