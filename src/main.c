@@ -43,6 +43,7 @@ GLuint g_physics_vao;
 
 GLuint g_circle_vbo;
 GLuint g_physics_vbo;
+GLuint g_tfbo;
 
 GLuint g_position_framebuffer[2];
 GLuint g_position_texture[2];
@@ -59,7 +60,7 @@ GLuint g_fold_program;
 
 int g_num_planets = 0;
 
-#define MAX_PLANETS 100
+#define MAX_PLANETS 128
 #define POINT_RADIUS 0.02
 #define CIRCLE_SIDES 10
 // Used together, so have to be distinct
@@ -350,12 +351,11 @@ void create_planet(GLfloat x, GLfloat y, GLfloat dx, GLfloat dy, GLfloat r, GLfl
 		return;
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-		GLfloat vbo_data[] = {
-			dx, dy,
-			r, g, b, 1.0,
-		};
-		glBufferSubData(GL_ARRAY_BUFFER, g_num_planets * sizeof(vbo_data), sizeof(vbo_data), vbo_data);
+	GLfloat vbo_data[] = {
+		dx, dy,
+		r, g, b, 1.0,
+	};
+	glBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, g_num_planets * sizeof(vbo_data), sizeof(vbo_data), vbo_data);
 
 	glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
 		GLfloat position_data[] = { x, y };
@@ -408,6 +408,19 @@ void push_quit_event(void)
 	SDL_PushEvent(&quit_event);
 }
 
+void create_random_planet(Sint32 x, Sint32 y)
+{
+	GLfloat x_relative = (GLfloat)(x) * 2.0 / WINDOW_W - 1.0;
+	GLfloat y_relative = 1.0 - (GLfloat)(y) * 2.0 / WINDOW_H;
+	GLfloat dx = -x_relative * 0.003;
+	GLfloat dy = -y_relative * 0.003;
+	GLfloat r = (rand() % 256) * (1.0 / 256.0);
+	GLfloat g = (rand() % 256) * (1.0 / 256.0);
+	GLfloat b = (rand() % 256) * (1.0 / 256.0);
+
+	create_planet(x_relative, y_relative, dx, dy, r, g, b);
+}
+
 SDL_bool update(Uint64 delta)
 {
 	SDL_Event e;
@@ -424,6 +437,14 @@ SDL_bool update(Uint64 delta)
 						break;
 				}
 				break;
+			case SDL_MOUSEBUTTONDOWN:
+				switch (e.button.button) {
+					case SDL_BUTTON_LEFT:
+						create_random_planet(e.button.x, e.button.y);
+						break;
+					default:
+						break;
+				}
 			default:
 				break;
 		}
@@ -474,12 +495,13 @@ void draw(void)
 	g_position_framebuffer_active = (g_position_framebuffer_active + 1) % 2;
 	glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[g_position_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, 1);
+		// Copy from TFBO first to prevent a new planet from being overwritten
+		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
+			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * g_num_planets);
+
 		glBeginTransformFeedback(GL_POINTS);
 			glDrawArrays(GL_POINTS, 0, g_num_planets);
 		glEndTransformFeedback();
-
-		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * g_num_planets);
 
 	glBindVertexArray(g_draw_vao);
 	glUseProgram(g_draw_program);
@@ -569,9 +591,8 @@ int main(int argc, char *argv[])
 	glGenVertexArrays(1, &g_draw_vao);
 	glBindVertexArray(g_physics_vao);
 
-	GLuint tfbo;
-	glGenBuffers(1, &tfbo);
-	glBindBuffer(GL_ARRAY_BUFFER, tfbo);
+	glGenBuffers(1, &g_tfbo);
+	glBindBuffer(GL_ARRAY_BUFFER, g_tfbo);
 		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, NULL, GL_DYNAMIC_COPY);
 
 	glGenBuffers(1, &g_circle_vbo);
@@ -607,7 +628,7 @@ int main(int argc, char *argv[])
 		glDisable(GL_RASTERIZER_DISCARD);
 
 	// This is here to stay for the rest of the program
-	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfbo);
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, g_tfbo);
 
 	GLuint draw_shaders[2]; // vertex, fragment
 
@@ -741,9 +762,7 @@ int main(int argc, char *argv[])
 	glUseProgram(g_fold_program);
 		glUniform1i(glGetUniformLocation(g_fold_program, "inputs"), FOLD_TEX_UNIT_OFFSET);
 
-	create_planet(0.0, 0.0, 0.01, 0.01, 0.0, 0.8, 0.2);
-	create_planet(0.2, 0.2, 0.01, 0.01, 0.8, 0.8, 0.0);
-	create_planet(0.2, -0.2, 0.01, 0.01, 0.0, 0.2, 0.8);
+	create_planet(0.0, 0.0, 0.0, 0.0, 0.0, 0.8, 0.2);
 
 #ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(main_loop_emscripten, 0, EM_TRUE);

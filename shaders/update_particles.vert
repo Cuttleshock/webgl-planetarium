@@ -12,7 +12,7 @@ uniform sampler2D attractions;
 
 const float time_step = 0.0001; // For applying accel to speed.
 // Speed is then treated as time-normalised.
-const float damping = 0.99; // Prevent the system from accumulating energy
+const float damping = 0.995; // Prevent the system from accumulating energy
 
 void main()
 {
