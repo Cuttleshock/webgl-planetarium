@@ -591,9 +591,15 @@ int main(int argc, char *argv[])
 	glGenVertexArrays(1, &g_draw_vao);
 	glBindVertexArray(g_physics_vao);
 
+	// Ensure buffers that won't immediately be overwritten are set to zero
+	GLfloat zeroes[6 * MAX_PLANETS];
+	for (int i = 0; i < sizeof(zeroes) / sizeof(zeroes[0]); ++i) {
+		zeroes[i] = 0.0;
+	}
+
 	glGenBuffers(1, &g_tfbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_tfbo);
-		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, NULL, GL_DYNAMIC_COPY);
+		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, zeroes, GL_DYNAMIC_COPY);
 
 	glGenBuffers(1, &g_circle_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
@@ -601,7 +607,7 @@ int main(int argc, char *argv[])
 
 	glGenBuffers(1, &g_physics_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, NULL, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, zeroes, GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // Prevent writing to currently-bound VBO
 
@@ -698,16 +704,17 @@ int main(int argc, char *argv[])
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, MAX_PLANETS, 1, 0, GL_RG, GL_FLOAT, NULL);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[i]);
+		glViewport(0, 0, MAX_PLANETS, 1);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_position_texture[i], 0);
 			assert_or_cleanup(
 				glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE,
 				"Planet position framebuffer incomplete",
 				gl_get_error_stringified
 			);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glClearColor(0.0, 0.0, 0.0, 0.0);
+			glClear(GL_COLOR_BUFFER_BIT);
 	}
 
 	GLuint attraction_shaders[2]; // vertex, fragment
@@ -735,16 +742,17 @@ int main(int argc, char *argv[])
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, MAX_PLANETS, MAX_PLANETS, 0, GL_RG, GL_FLOAT, NULL);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glBindTexture(GL_TEXTURE_2D, 0);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, g_attraction_framebuffer[i]);
+		glViewport(0, 0, MAX_PLANETS, MAX_PLANETS);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_attraction_texture[i], 0);
 			assert_or_cleanup(
 				glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE,
 				"Attraction matrix framebuffer incomplete",
 				gl_get_error_stringified
 			);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glClearColor(0.0, 0.0, 0.0, 0.0);
+			glClear(GL_COLOR_BUFFER_BIT);
 	}
 
 	GLuint fold_shaders[2];
