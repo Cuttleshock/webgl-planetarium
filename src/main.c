@@ -60,6 +60,9 @@ GLuint g_fold_program;
 
 int g_num_planets = 0;
 
+SDL_bool g_dragging_camera = SDL_FALSE;
+GLfloat g_camera[2] = { 0.0, 0.0 };
+
 #define MAX_PLANETS 128
 #define POINT_RADIUS 0.02
 #define CIRCLE_SIDES 10
@@ -408,12 +411,13 @@ void push_quit_event(void)
 	SDL_PushEvent(&quit_event);
 }
 
+// Make planet at *absolute* position (x, y)
 void create_random_planet(Sint32 x, Sint32 y)
 {
 	GLfloat x_relative = (GLfloat)(x) * 2.0 / WINDOW_W - 1.0;
 	GLfloat y_relative = 1.0 - (GLfloat)(y) * 2.0 / WINDOW_H;
-	GLfloat dx = -x_relative * 0.003;
-	GLfloat dy = -y_relative * 0.003;
+	GLfloat dx = (1.0 - (GLfloat)(x - g_camera[0]) * 2.0 / WINDOW_W) * 0.003;
+	GLfloat dy = ((GLfloat)(y - g_camera[1]) * 2.0 / WINDOW_H - 1.0) * 0.003;
 	GLfloat r = (rand() % 256) * (1.0 / 256.0);
 	GLfloat g = (rand() % 256) * (1.0 / 256.0);
 	GLfloat b = (rand() % 256) * (1.0 / 256.0);
@@ -440,11 +444,35 @@ SDL_bool update(Uint64 delta)
 			case SDL_MOUSEBUTTONDOWN:
 				switch (e.button.button) {
 					case SDL_BUTTON_LEFT:
-						create_random_planet(e.button.x, e.button.y);
+						create_random_planet(e.button.x + g_camera[0], e.button.y + g_camera[1]);
+						break;
+					case SDL_BUTTON_RIGHT:
+						g_dragging_camera = SDL_TRUE;
 						break;
 					default:
 						break;
 				}
+				break;
+			case SDL_MOUSEBUTTONUP:
+				switch (e.button.button) {
+					case SDL_BUTTON_RIGHT:
+						g_dragging_camera = SDL_FALSE;
+						break;
+					default:
+						break;
+				}
+				break;
+			case SDL_MOUSEMOTION:
+				if (g_dragging_camera) {
+					g_camera[0] -= e.motion.xrel;
+					g_camera[1] -= e.motion.yrel;
+					glUniform2f(
+						glGetUniformLocation(g_draw_program, "camera"),
+						2.0 * (GLfloat)(g_camera[0]) / WINDOW_W,
+						-2.0 * (GLfloat)(g_camera[1]) / WINDOW_H
+					);
+				}
+				break;
 			default:
 				break;
 		}
