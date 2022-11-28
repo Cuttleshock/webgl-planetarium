@@ -3,7 +3,7 @@
 #ifdef __EMSCRIPTEN__
 #include <webgl/webgl2.h>
 #else
-#include <glad/gl.h>
+#include "glad_gl.h"
 #endif
 
 #include <SDL2/SDL.h>
