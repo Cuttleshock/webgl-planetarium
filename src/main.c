@@ -108,9 +108,9 @@ void create_random_planet(Sint32 x, Sint32 y)
 	GLfloat y_relative = 1.0 - (GLfloat)(y) * 2.0 / WINDOW_H;
 	GLfloat dx = (1.0 - (GLfloat)(x - g_camera[0]) * 2.0 / WINDOW_W) * 0.003;
 	GLfloat dy = ((GLfloat)(y - g_camera[1]) * 2.0 / WINDOW_H - 1.0) * 0.003;
-	GLfloat r = (rand() % 256) * (1.0 / 256.0);
-	GLfloat g = (rand() % 256) * (1.0 / 256.0);
-	GLfloat b = (rand() % 256) * (1.0 / 256.0);
+	GLfloat r = (my_rand() % 256) * (1.0 / 256.0);
+	GLfloat g = (my_rand() % 256) * (1.0 / 256.0);
+	GLfloat b = (my_rand() % 256) * (1.0 / 256.0);
 
 	create_planet(x_relative, y_relative, dx, dy, r, g, b);
 }
@@ -251,7 +251,7 @@ void main_loop_emscripten(void)
 
 int main(int argc, char *argv[])
 {
-	srand(time(NULL));
+	my_srand(time(NULL));
 	register_cleanup_fn(free_all);
 
 	assert_or_cleanup(

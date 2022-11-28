@@ -10,6 +10,8 @@
 #define WHT "\x1B[37m"
 #define COLOR_RESET "\x1B[0m"
 
+void my_srand(unsigned int seed);
+int my_rand(void);
 void register_cleanup_fn(void (*new_cleanup_fn) (void));
 void register_message_window(SDL_Window *new_msg_window);
 void assert_or_debug(SDL_bool assertion, char *msg, const char *(*error_getter) (void));

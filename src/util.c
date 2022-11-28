@@ -13,6 +13,16 @@
 static void (*cleanup_fn) (void) = NULL;
 static SDL_Window *msg_window = NULL;
 
+void my_srand(unsigned int seed)
+{
+	srand(seed);
+}
+
+int my_rand(void)
+{
+	return rand();
+}
+
 void register_cleanup_fn(void (*new_cleanup_fn) (void))
 {
 	cleanup_fn = new_cleanup_fn;
