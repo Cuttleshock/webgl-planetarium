@@ -20,9 +20,9 @@ EXE_LINUX = $(BUILD_DIR_LINUX)/main
 EXE_WIN = $(BUILD_DIR_WIN)/Main.exe
 EXE_WEB = $(BUILD_DIR_WEB)/main.html
 
-SOURCES_LINUX = main glad_gl
-SOURCES_WIN = main glad_gl
-SOURCES_WEB = main
+SOURCES_LINUX = main glad_gl util opengl_util
+SOURCES_WIN = main glad_gl util opengl_util
+SOURCES_WEB = main util opengl_util
 SHELL_FILE_WEB = web_shell.html
 SHADERS = shaders/particles.vert shaders/particles.frag \
 	shaders/update_particles.vert shaders/update_particles.frag \
