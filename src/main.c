@@ -72,36 +72,6 @@ void free_all(void)
 	SDL_Quit();
 }
 
-void assert_or_debug(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
-{
-#ifdef DEBUG
-	if (!assertion) {
-		printf(BLU "%s: %s" COLOR_RESET "\n", msg, error_getter ? error_getter() : "(no debug info)");
-	}
-#endif
-}
-
-void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
-{
-	if (!assertion) {
-		const char *error_msg = error_getter ? error_getter() : "(no debug info)";
-		char *full_msg = my_malloc(strlen(msg) + strlen(error_msg) + 3);
-		sprintf(full_msg, "%s: %s", msg, error_msg);
-#ifdef DEBUG
-		fprintf(stderr, RED "%s" COLOR_RESET "\n", full_msg);
-#else
-		if (g_window) {
-			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error: closing program", full_msg, g_window);
-		} else {
-			fprintf(stderr, RED "%s" COLOR_RESET "\n", full_msg);
-		}
-#endif
-		my_free(full_msg);
-		free_all();
-		exit(1);
-	}
-}
-
 void create_planet(GLfloat x, GLfloat y, GLfloat dx, GLfloat dy, GLfloat r, GLfloat g, GLfloat b)
 {
 	if (g_num_planets >= MAX_PLANETS) {
@@ -282,6 +252,7 @@ void main_loop_emscripten(void)
 int main(int argc, char *argv[])
 {
 	srand(time(NULL));
+	register_cleanup_fn(free_all);
 
 	assert_or_cleanup(
 		SDL_Init(SDL_INIT_VIDEO) == 0,
@@ -312,6 +283,7 @@ int main(int argc, char *argv[])
 		SDL_WINDOW_OPENGL
 	);
 	assert_or_cleanup(g_window != NULL, "Failed to open window", SDL_GetError);
+	register_message_window(g_window);
 
 	g_glcontext = SDL_GL_CreateContext(g_window);
 	assert_or_cleanup(g_glcontext != NULL, "Failed to create OpenGL context", SDL_GetError);

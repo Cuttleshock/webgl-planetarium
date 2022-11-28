@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #ifdef __WIN64__
 #include <windows.h>
 #else
@@ -5,6 +7,53 @@
 #endif
 
 #include <SDL2/SDL.h>
+
+#include "util.h"
+
+static void (*cleanup_fn) (void) = NULL;
+static SDL_Window *msg_window = NULL;
+
+void register_cleanup_fn(void (*new_cleanup_fn) (void))
+{
+	cleanup_fn = new_cleanup_fn;
+}
+
+void register_message_window(SDL_Window *new_msg_window)
+{
+	msg_window = new_msg_window;
+}
+
+void assert_or_debug(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
+{
+#ifdef DEBUG
+	if (!assertion) {
+		printf(BLU "%s: %s" COLOR_RESET "\n", msg, error_getter ? error_getter() : "(no debug info)");
+	}
+#endif
+}
+
+void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
+{
+	if (!assertion) {
+		const char *error_msg = error_getter ? error_getter() : "(no debug info)";
+		char *full_msg = my_malloc(strlen(msg) + strlen(error_msg) + 3);
+		sprintf(full_msg, "%s: %s", msg, error_msg);
+#ifdef DEBUG
+		fprintf(stderr, RED "%s" COLOR_RESET "\n", full_msg);
+#else
+		if (msg_window) {
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error: closing program", full_msg, msg_window);
+		} else {
+			fprintf(stderr, RED "%s" COLOR_RESET "\n", full_msg);
+		}
+#endif
+		my_free(full_msg);
+		if (cleanup_fn) {
+			cleanup_fn();
+		}
+		exit(1);
+	}
+}
 
 void *my_malloc(size_t size)
 {
