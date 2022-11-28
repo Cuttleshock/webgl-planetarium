@@ -401,6 +401,14 @@ GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, cha
 		return 0;
 	}
 
+	GLint validate_status;
+	glValidateProgram(program);
+	glGetProgramiv(program, GL_VALIDATE_STATUS, &validate_status);
+	if (validate_status != GL_TRUE) {
+		print_program_log(program);
+		return 0;
+	}
+
 	return program;
 }
 
