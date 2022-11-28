@@ -22,7 +22,6 @@
 
 SDL_Window *g_window;
 SDL_GLContext g_glcontext;
-GLsync g_transform_fence;
 
 GLuint g_draw_vao;
 GLuint g_physics_vao;
