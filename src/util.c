@@ -10,7 +10,8 @@
 
 #include "util.h"
 
-static void (*cleanup_fn) (void) = NULL;
+static void (*cleanup_fns[32]) (void) = { NULL };
+static int num_cleanup_fns = 0;
 static SDL_Window *msg_window = NULL;
 
 void my_srand(unsigned int seed)
@@ -23,9 +24,17 @@ int my_rand(void)
 	return rand();
 }
 
-void register_cleanup_fn(void (*new_cleanup_fn) (void))
+SDL_bool push_cleanup_fn(void (*new_cleanup_fn) (void))
 {
-	cleanup_fn = new_cleanup_fn;
+	const int max_cleanup_fns = sizeof(cleanup_fns) / sizeof(cleanup_fns[0]);
+	if (num_cleanup_fns >= max_cleanup_fns) {
+		printf("Cannot register cleanup function: exceeded limit of %d\n", max_cleanup_fns);
+		return SDL_FALSE;
+	} else {
+		cleanup_fns[num_cleanup_fns] = new_cleanup_fn;
+		++num_cleanup_fns;
+		return SDL_TRUE;
+	}
 }
 
 void register_message_window(SDL_Window *new_msg_window)
@@ -58,8 +67,8 @@ void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter
 		}
 #endif
 		my_free(full_msg);
-		if (cleanup_fn) {
-			cleanup_fn();
+		for (; num_cleanup_fns > 0; --num_cleanup_fns) {
+			cleanup_fns[num_cleanup_fns - 1]();
 		}
 		exit(1);
 	}

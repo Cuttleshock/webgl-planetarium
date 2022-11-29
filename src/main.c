@@ -251,7 +251,7 @@ void main_loop_emscripten(void)
 int main(int argc, char *argv[])
 {
 	my_srand(time(NULL));
-	register_cleanup_fn(free_all);
+	push_cleanup_fn(free_all);
 
 	assert_or_cleanup(
 		SDL_Init(SDL_INIT_VIDEO) == 0,
