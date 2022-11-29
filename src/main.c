@@ -57,18 +57,14 @@ GLfloat g_camera[2] = { 0.0, 0.0 };
 // Used in a separate shader
 #define FOLD_TEX_UNIT_OFFSET 0
 
-void free_all(void)
+void destroy_window(void)
 {
-#ifdef DEBUG
-	printf("Freeing all objects before exiting program\n");
-#endif
-	if (g_glcontext) {
-		SDL_GL_DeleteContext(g_glcontext);
-	}
-	if (g_window) {
-		SDL_DestroyWindow(g_window);
-	}
-	SDL_Quit();
+	SDL_DestroyWindow(g_window);
+}
+
+void delete_glcontext(void)
+{
+	SDL_GL_DeleteContext(g_glcontext);
 }
 
 void create_planet(GLfloat x, GLfloat y, GLfloat dx, GLfloat dy, GLfloat r, GLfloat g, GLfloat b)
@@ -251,13 +247,13 @@ void main_loop_emscripten(void)
 int main(int argc, char *argv[])
 {
 	my_srand(time(NULL));
-	push_cleanup_fn(free_all);
 
 	assert_or_cleanup(
 		SDL_Init(SDL_INIT_VIDEO) == 0,
 		"Failed to init SDL subsystems",
 		SDL_GetError
 	);
+	push_cleanup_fn(SDL_Quit);
 
 #ifdef __EMSCRIPTEN__
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -282,10 +278,12 @@ int main(int argc, char *argv[])
 		SDL_WINDOW_OPENGL
 	);
 	assert_or_cleanup(g_window != NULL, "Failed to open window", SDL_GetError);
+	push_cleanup_fn(destroy_window);
 	register_message_window(g_window);
 
 	g_glcontext = SDL_GL_CreateContext(g_window);
 	assert_or_cleanup(g_glcontext != NULL, "Failed to create OpenGL context", SDL_GetError);
+	push_cleanup_fn(delete_glcontext);
 
 #ifdef __EMSCRIPTEN__
 	const GLubyte *gl_version_str = glGetString(GL_VERSION);

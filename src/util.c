@@ -81,6 +81,9 @@ SDL_bool push_cleanup_fn(void (*new_cleanup_fn) (void))
 
 void cleanup_and_quit(int status)
 {
+#ifdef DEBUG
+	printf("Freeing all objects before exiting program\n");
+#endif
 	for (; num_cleanup_fns > 0; --num_cleanup_fns) {
 		cleanup_fns[num_cleanup_fns - 1]();
 	}
