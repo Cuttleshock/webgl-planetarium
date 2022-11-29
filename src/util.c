@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 
 #ifdef __WIN64__
 #include <windows.h>
@@ -13,6 +14,43 @@
 static void (*cleanup_fns[32]) (void) = { NULL };
 static int num_cleanup_fns = 0;
 static SDL_Window *msg_window = NULL;
+static FILE *log_file = NULL;
+
+void close_log(void)
+{
+	if (log_file) {
+		int ret = fclose(log_file);
+		log_file = NULL;
+		if (ret != 0) {
+			printf("Failed to close log file\n");
+		}
+	}
+}
+
+SDL_bool open_log(char *fname)
+{
+	printf("Opening log file %s\n", fname);
+	log_file = fopen(fname, "a");
+	if (log_file == NULL) {
+		return SDL_FALSE;
+	} else {
+		push_cleanup_fn(close_log);
+		return SDL_TRUE;
+	}
+}
+
+void write_log(char *format, ...)
+{
+	FILE *out_stream = log_file;
+	if (out_stream == NULL) {
+		out_stream = stdout;
+	}
+	va_list arg_list;
+	va_start(arg_list, format);
+		vfprintf(out_stream, format, arg_list);
+	va_end(arg_list);
+	fputc('\n', out_stream);
+}
 
 void my_srand(unsigned int seed)
 {

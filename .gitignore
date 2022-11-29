@@ -2,3 +2,4 @@ build-linux/
 build-win/
 build-web/
 .vscode/
+*.log
