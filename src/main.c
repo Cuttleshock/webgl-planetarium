@@ -243,7 +243,7 @@ void main_loop_emscripten(void)
 	SDL_bool loop_done = main_loop(16);
 	if (loop_done) {
 		emscripten_cancel_main_loop();
-		free_all();
+		cleanup_and_quit(EXIT_SUCCESS);
 	}
 }
 #endif
@@ -530,6 +530,6 @@ int main(int argc, char *argv[])
 	}
 #endif
 
-	free_all();
-	return 0;
+	cleanup_and_quit(EXIT_SUCCESS);
+	return EXIT_SUCCESS; // Unreachable but keeps compilers happy
 }

@@ -7,6 +7,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
 #include <SDL2/SDL.h>
 
 #include "util.h"
@@ -75,6 +79,18 @@ SDL_bool push_cleanup_fn(void (*new_cleanup_fn) (void))
 	}
 }
 
+void cleanup_and_quit(int status)
+{
+	for (; num_cleanup_fns > 0; --num_cleanup_fns) {
+		cleanup_fns[num_cleanup_fns - 1]();
+	}
+#ifdef __EMSCRIPTEN__
+	emscripten_exit_with_live_runtime();
+#else
+	exit(status);
+#endif
+}
+
 void register_message_window(SDL_Window *new_msg_window)
 {
 	msg_window = new_msg_window;
@@ -105,10 +121,7 @@ void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter
 		}
 #endif
 		my_free(full_msg);
-		for (; num_cleanup_fns > 0; --num_cleanup_fns) {
-			cleanup_fns[num_cleanup_fns - 1]();
-		}
-		exit(1);
+		cleanup_and_quit(EXIT_FAILURE);
 	}
 }
 
