@@ -39,6 +39,32 @@ SDL_bool open_log(char *fname)
 		return SDL_FALSE;
 	} else {
 		push_cleanup_fn(close_log);
+#ifdef __EMSCRIPTEN__
+		EM_ASM({
+			const fname_js = UTF8ToString($0);
+			let button = document.getElementById('download-logs');
+			if (!button) {
+				button = document.createElement('button');
+				button.type = 'button';
+				button.textContent = 'Download logs';
+				button.id = 'download-logs';
+				document.body.appendChild(button);
+			}
+			button.onclick = () => {
+				const data = FS.readFile(fname_js);
+				const blob = new Blob([data], { type: 'text/plain' });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = fname_js;
+				a.target = '_blank';
+				a.click();
+				URL.revokeObjectURL(url);
+			};
+		}, fname);
+		// Ensure that the file is always up to date when downloaded
+		setbuf(log_file, NULL);
+#endif
 		return SDL_TRUE;
 	}
 }
