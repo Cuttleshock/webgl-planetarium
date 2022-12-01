@@ -10,6 +10,7 @@
 #define WHT "\x1B[37m"
 #define COLOR_RESET "\x1B[0m"
 
+void format_time(char *buf, int buflen);
 SDL_bool open_log(char *name);
 void write_log(char *format, ...);
 void my_srand(unsigned int seed);

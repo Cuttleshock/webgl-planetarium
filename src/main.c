@@ -247,6 +247,9 @@ void main_loop_emscripten(void)
 int main(int argc, char *argv[])
 {
 	my_srand(time(NULL));
+#ifdef DEBUG
+	open_log("planetarium.log");
+#endif
 
 	assert_or_cleanup(
 		SDL_Init(SDL_INIT_VIDEO) == 0,
@@ -279,7 +282,9 @@ int main(int argc, char *argv[])
 	);
 	assert_or_cleanup(g_window != NULL, "Failed to open window", SDL_GetError);
 	push_cleanup_fn(destroy_window);
+#ifndef DEBUG
 	register_message_window(g_window);
+#endif
 
 	g_glcontext = SDL_GL_CreateContext(g_window);
 	assert_or_cleanup(g_glcontext != NULL, "Failed to create OpenGL context", SDL_GetError);
@@ -287,18 +292,18 @@ int main(int argc, char *argv[])
 
 #ifdef __EMSCRIPTEN__
 	const GLubyte *gl_version_str = glGetString(GL_VERSION);
-	printf("%s\n", gl_version_str);
+	write_log("%s\n", gl_version_str);
 	assert_or_cleanup(have_webgl_2((const char *) gl_version_str), "This browser does not support WebGL 2.0", gl_get_error_stringified);
 #else
 	int gl_version = gladLoadGL((GLADloadfunc) SDL_GL_GetProcAddress);
 	assert_or_cleanup(gl_version != 0, "Failed to load OpenGL functions", NULL);
-	printf("OpenGL version %d.%d\n", GLAD_VERSION_MAJOR(gl_version), GLAD_VERSION_MINOR(gl_version));
+	write_log("OpenGL version %d.%d\n", GLAD_VERSION_MAJOR(gl_version), GLAD_VERSION_MINOR(gl_version));
 
 	#ifdef DEBUG
 		if (!have_gl_debug_output(gl_version)) {
-			printf("GL_DEBUG_OUTPUT unavailable\n");
+			write_log("GL_DEBUG_OUTPUT unavailable\n");
 		} else {
-			printf("Enabling GL_DEBUG_OUTPUT\n");
+			write_log("Enabling GL_DEBUG_OUTPUT\n");
 			glEnable(GL_DEBUG_OUTPUT);
 			glDebugMessageCallback(gl_debug_message_callback, NULL);
 		}
@@ -518,7 +523,7 @@ int main(int argc, char *argv[])
 		recent_delays[frame_number] = f1_end - f1_start;
 		recent_total += recent_delays[frame_number];
 		if (frame_number == 0) {
-			printf("%2.2f FPS\n", (1000.0 * (float) FPS_CAP) / ((float) recent_total));
+			write_log("%2.2f FPS\n", (1000.0 * (float) FPS_CAP) / ((float) recent_total));
 		}
 		frame_number = (frame_number + 1) % FPS_CAP;
 #endif

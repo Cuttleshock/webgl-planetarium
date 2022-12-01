@@ -91,8 +91,8 @@ void gl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum sev
 	}
 #undef CASE
 
-	printf("GL_DEBUG: severity %-12s source %-15s type %s\n", str_severity, str_source, str_type);
-	printf("          %s\n", message);
+	write_log("GL_DEBUG: severity %-12s source %-15s type %s\n", str_severity, str_source, str_type);
+	write_log("          %s\n", message);
 #endif // __EMSCRIPTEN__
 }
 
@@ -119,7 +119,7 @@ void print_shader_log(GLuint shader)
 	char *log_buffer = my_malloc(log_length + 1);
 	log_buffer[log_length] = 0;
 	glGetShaderInfoLog(shader, log_length, NULL, log_buffer);
-	printf("%s\n", log_buffer);
+	write_log("%s\n", log_buffer);
 	my_free(log_buffer);
 }
 
@@ -130,7 +130,7 @@ void print_program_log(GLuint program)
 	char *log_buffer = my_malloc(log_length + 1);
 	log_buffer[log_length] = 0;
 	glGetProgramInfoLog(program, log_length, NULL, log_buffer);
-	printf("%s\n", log_buffer);
+	write_log("%s\n", log_buffer);
 	my_free(log_buffer);
 }
 

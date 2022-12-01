@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <time.h>
 
 #ifdef __WIN64__
 #include <windows.h>
@@ -20,8 +21,19 @@ static int num_cleanup_fns = 0;
 static SDL_Window *msg_window = NULL;
 static FILE *log_file = NULL;
 
+void format_time(char *buf, int buflen)
+{
+	time_t now;
+	time(&now);
+	struct tm *local_now = localtime(&now);
+	strftime(buf, buflen, "%Y-%m-%d %H:%M:%S", local_now);
+}
+
 void close_log(void)
 {
+	char time_buf[64];
+	format_time(time_buf, sizeof(time_buf));
+	write_log("%s Closing log\n\n", time_buf);
 	if (log_file) {
 		int ret = fclose(log_file);
 		log_file = NULL;
@@ -33,9 +45,9 @@ void close_log(void)
 
 SDL_bool open_log(char *fname)
 {
-	printf("Opening log file %s\n", fname);
 	log_file = fopen(fname, "a");
 	if (log_file == NULL) {
+		printf("Failed to open log file %s: logging to stdout\n", fname);
 		return SDL_FALSE;
 	} else {
 		push_cleanup_fn(close_log);
@@ -65,6 +77,11 @@ SDL_bool open_log(char *fname)
 		// Ensure that the file is always up to date when downloaded
 		setbuf(log_file, NULL);
 #endif
+		// Awkwardly placed after __EMSCRIPTEN__ because writes need to happen
+		// after removing the buffer
+		char time_buf[64];
+		format_time(time_buf, sizeof(time_buf));
+		write_log("%s Opened log file %s\n", time_buf, fname);
 		return SDL_TRUE;
 	}
 }
@@ -79,7 +96,6 @@ void write_log(char *format, ...)
 	va_start(arg_list, format);
 		vfprintf(out_stream, format, arg_list);
 	va_end(arg_list);
-	fputc('\n', out_stream);
 }
 
 void my_srand(unsigned int seed)
@@ -96,7 +112,7 @@ SDL_bool push_cleanup_fn(void (*new_cleanup_fn) (void))
 {
 	const int max_cleanup_fns = sizeof(cleanup_fns) / sizeof(cleanup_fns[0]);
 	if (num_cleanup_fns >= max_cleanup_fns) {
-		printf("Cannot register cleanup function: exceeded limit of %d\n", max_cleanup_fns);
+		write_log("Cannot register cleanup function: exceeded limit of %d\n", max_cleanup_fns);
 		return SDL_FALSE;
 	} else {
 		cleanup_fns[num_cleanup_fns] = new_cleanup_fn;
@@ -107,9 +123,7 @@ SDL_bool push_cleanup_fn(void (*new_cleanup_fn) (void))
 
 void cleanup_and_quit(int status)
 {
-#ifdef DEBUG
-	printf("Freeing all objects before exiting program\n");
-#endif
+	write_log("Freeing all objects before exiting program\n");
 	for (; num_cleanup_fns > 0; --num_cleanup_fns) {
 		cleanup_fns[num_cleanup_fns - 1]();
 	}
@@ -127,11 +141,9 @@ void register_message_window(SDL_Window *new_msg_window)
 
 void assert_or_debug(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
 {
-#ifdef DEBUG
 	if (!assertion) {
-		printf(BLU "%s: %s" COLOR_RESET "\n", msg, error_getter ? error_getter() : "(no debug info)");
+		write_log(BLU "%s: %s" COLOR_RESET "\n", msg, error_getter ? error_getter() : "(no debug info)");
 	}
-#endif
 }
 
 void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
@@ -140,15 +152,11 @@ void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter
 		const char *error_msg = error_getter ? error_getter() : "(no debug info)";
 		char *full_msg = my_malloc(strlen(msg) + strlen(error_msg) + 3);
 		sprintf(full_msg, "%s: %s", msg, error_msg);
-#ifdef DEBUG
-		fprintf(stderr, RED "%s" COLOR_RESET "\n", full_msg);
-#else
 		if (msg_window) {
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error: closing program", full_msg, msg_window);
 		} else {
-			fprintf(stderr, RED "%s" COLOR_RESET "\n", full_msg);
+			write_log(RED "%s" COLOR_RESET "\n", full_msg);
 		}
-#endif
 		my_free(full_msg);
 		cleanup_and_quit(EXIT_FAILURE);
 	}
