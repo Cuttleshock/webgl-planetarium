@@ -10,6 +10,98 @@
 
 #include "util.h"
 
+int floats_per_pixel(GLenum format)
+{
+	switch (format) {
+		case GL_RG:
+			return 2;
+		default:
+			return 0;
+	}
+}
+
+int pixel_format_buffer_size(int x, int y, int width, int height, GLenum format, GLenum type)
+{
+	int pixel_size = floats_per_pixel(format);
+	if (pixel_size == 0) {
+		write_log("Unsupported pixel format: %d\n", format);
+		return 0;
+	}
+
+	if (type != GL_FLOAT) {
+		write_log("Unsupported pixel data type: %d\n", type);
+		return 0;
+	}
+
+	// Suggest 8 chars per float: sufficient for values in the tens or hundreds
+	return (width - x) * (height - y) * pixel_size * 8;
+}
+
+int pixel_read_buffer_size(int x, int y, int width, int height, GLenum format)
+{
+	int pixel_size = floats_per_pixel(format);
+	if (pixel_size == 0) {
+		write_log("Unsupported pixel format: %d\n", format);
+		return 0;
+	}
+
+	return (width - x) * (height - y) * pixel_size;
+}
+
+void format_screenshot(int x, int y, int width, int height, GLenum format, GLenum type, char *buf, int buflen, GLfloat *pixel_buf, int pixel_buflen)
+{
+	int pixel_size = floats_per_pixel(format);
+	if (pixel_size == 0) {
+		write_log("Unsupported pixel format for screenshot: %d\n", format);
+		return;
+	}
+
+	if (type != GL_FLOAT) {
+		write_log("Unsupported pixel data type for screenshot: %d\n", type);
+		return;
+	}
+
+	if (pixel_buflen < pixel_read_buffer_size(x, y, width, height, format)) {
+		write_log("Insufficient pixel buffer size for screenshot\n");
+		return;
+	}
+
+	glReadPixels(x, y, width, height, format, type, pixel_buf);
+	int ptr = 0;
+
+	for (int i = 0; i < height; ++i) {
+		for (int j = 0; j < width; ++j) {
+			int offset = (i * width + j) * pixel_size;
+			ptr += snprintf(&buf[ptr], buflen - ptr - 2, "%1.2f %1.2f, ", pixel_buf[offset], pixel_buf[offset + 1]);
+			if (ptr >= buflen - 2) {
+				write_log("Screenshot truncated at pixel (%d, %d)\n", j, i);
+				return;
+			}
+		}
+		ptr += sprintf(&buf[ptr], "\n");
+	}
+}
+
+void format_screenshot_alloc(int x, int y, int width, int height, GLenum format, GLenum type)
+{
+	int buflen = pixel_format_buffer_size(x, y, width, height, format, type);
+	if (buflen == 0) {
+		return;
+	}
+
+	int pixel_buflen = pixel_read_buffer_size(x, y, width, height, format);
+	if (pixel_buflen == 0) {
+		return;
+	}
+
+	char *buf = my_malloc(buflen);
+	GLfloat *pixel_buf = my_malloc(pixel_buflen * sizeof(GLfloat));
+	format_screenshot(x, y, width, height, format, type, buf, buflen, pixel_buf, pixel_buflen);
+	write_log("%s\n", buf);
+	my_free(pixel_buf);
+	my_free(buf);
+}
+
 SDL_bool have_gl_debug_output(int glad_gl_version)
 {
 #ifdef __EMSCRIPTEN__
