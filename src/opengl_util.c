@@ -10,6 +10,7 @@
 
 #include "util.h"
 
+// Returns: number of floats per pixel.
 int floats_per_pixel(GLenum format)
 {
 	switch (format) {
@@ -20,6 +21,7 @@ int floats_per_pixel(GLenum format)
 	}
 }
 
+// Returns: size of character buffer needed for format_screenshot().
 int pixel_format_buffer_size(int x, int y, int width, int height, GLenum format, GLenum type)
 {
 	int pixel_size = floats_per_pixel(format);
@@ -37,6 +39,7 @@ int pixel_format_buffer_size(int x, int y, int width, int height, GLenum format,
 	return (width - x) * (height - y) * pixel_size * 8;
 }
 
+// Returns: size of pixel buffer needed for format_screenshot().
 int pixel_read_buffer_size(int x, int y, int width, int height, GLenum format, GLenum type)
 {
 	int pixel_size = floats_per_pixel(format);
@@ -58,6 +61,17 @@ int pixel_read_buffer_size(int x, int y, int width, int height, GLenum format, G
 	return (width - x) * (height - y) * pixel_size * pixel_component_size;
 }
 
+// Print contents of framebuffer to a provided character array, using a second provided
+// buffer to read pixels to.
+// Example usage:
+// int buflen = pixel_format_buffer_size(x, y, width, height, format, type);
+// int pixel_buflen = pixel_read_buffer_size(x, y, width, height, format, type);
+// char *buf = my_malloc(buflen);
+// GLfloat *pixel_buf = my_malloc(pixel_buflen);
+// format_screenshot(x, y, width, height, format, type, buf, buflen, pixel_buf, pixel_buflen);
+// write_log("%s\n", buf);
+// my_free(pixel_buf);
+// my_free(buf);
 void format_screenshot(int x, int y, int width, int height, GLenum format, GLenum type, char *buf, int buflen, GLfloat *pixel_buf, int pixel_buflen)
 {
 	int pixel_size = floats_per_pixel(format);
@@ -92,6 +106,7 @@ void format_screenshot(int x, int y, int width, int height, GLenum format, GLenu
 	}
 }
 
+// Log contents of framebuffer, handling all buffer allocation and freeing.
 void format_screenshot_alloc(int x, int y, int width, int height, GLenum format, GLenum type)
 {
 	int buflen = pixel_format_buffer_size(x, y, width, height, format, type);
@@ -112,6 +127,7 @@ void format_screenshot_alloc(int x, int y, int width, int height, GLenum format,
 	my_free(buf);
 }
 
+// Returns: if truthy, glEnable(GL_DEBUG_OUTPUT) and related functions can be called.
 SDL_bool have_gl_debug_output(int glad_gl_version)
 {
 #ifdef __EMSCRIPTEN__
@@ -127,6 +143,7 @@ SDL_bool have_gl_debug_output(int glad_gl_version)
 #endif // __EMSCRIPTEN__
 }
 
+// Returns: are we running on WebGL 2?
 SDL_bool have_webgl_2(const char *gl_version_str)
 {
 #ifdef __EMSCRIPTEN__
@@ -141,6 +158,8 @@ SDL_bool have_webgl_2(const char *gl_version_str)
 #endif // __EMSCRIPTEN__
 }
 
+// Fully verbose caller for OpenGL debug output.
+// Usage: glDebugMessageCallback(gl_debug_message_callback, NULL);
 void gl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param)
 {
 #ifdef __EMSCRIPTEN__
@@ -198,6 +217,8 @@ void gl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum sev
 #endif // __EMSCRIPTEN__
 }
 
+// For use in assert_or_debug() and similar.
+// Returns: GL_INVALID_ENUM -> "GL_INVALID_ENUM", etc..
 const char *gl_get_error_stringified(void)
 {
 #define CASE(X) case GL_##X: return #X;
@@ -214,6 +235,7 @@ const char *gl_get_error_stringified(void)
 #undef CASE
 }
 
+// Prints contents of glGetShaderInfoLog(), handling character buffer allocation.
 void print_shader_log(GLuint shader)
 {
 	GLint log_length;
@@ -225,6 +247,7 @@ void print_shader_log(GLuint shader)
 	my_free(log_buffer);
 }
 
+// Prints contents of glGetProgramInfoLog(), handling character buffer allocation.
 void print_program_log(GLuint program)
 {
 	GLint log_length;
@@ -236,7 +259,8 @@ void print_program_log(GLuint program)
 	my_free(log_buffer);
 }
 
-// Return value: a shader handle, or 0 on failure
+// Loads a shader relative to the executable's location.
+// Returns: shader handle, or 0 on failure.
 GLuint load_shader(char *fname, GLenum shader_type)
 {
 	char full_path[256] = {0};
@@ -292,6 +316,9 @@ GLuint load_shader(char *fname, GLenum shader_type)
 	return shader;
 }
 
+// Creates a program given a list of valid shader handles, out variables and transform
+// feedback variables. Detaches and deletes the shaders after linking.
+// Returns: program handle, or 0 on failure.
 GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, char **outs, int num_transforms, const char * const *transforms)
 {
 	GLuint program = glCreateProgram();

@@ -21,6 +21,7 @@ static int num_cleanup_fns = 0;
 static SDL_Window *msg_window = NULL;
 static FILE *log_file = NULL;
 
+// Writes Y-M-D H:m:s timestamp to provided buffer.
 void format_time(char *buf, int buflen)
 {
 	time_t now;
@@ -29,6 +30,7 @@ void format_time(char *buf, int buflen)
 	strftime(buf, buflen, "%Y-%m-%d %H:%M:%S", local_now);
 }
 
+// Closes log opened by open_log().
 void close_log(void)
 {
 	char time_buf[64];
@@ -43,6 +45,8 @@ void close_log(void)
 	}
 }
 
+// Opens a log file. If this fails, logs will still be written to stdout.
+// Returns: success.
 SDL_bool open_log(char *fname)
 {
 	log_file = fopen(fname, "a");
@@ -86,6 +90,7 @@ SDL_bool open_log(char *fname)
 	}
 }
 
+// Writes to opened log, or stdout if none. Uses printf() format strings.
 void write_log(char *format, ...)
 {
 	FILE *out_stream = log_file;
@@ -98,16 +103,20 @@ void write_log(char *format, ...)
 	va_end(arg_list);
 }
 
+// Seeds RNG.
 void my_srand(unsigned int seed)
 {
 	srand(seed);
 }
 
+// Returns: a random integer between 0 and RAND_MAX.
 int my_rand(void)
 {
 	return rand();
 }
 
+// Add function to the stack called by cleanup_and_quit().
+// Returns: success.
 SDL_bool push_cleanup_fn(void (*new_cleanup_fn) (void))
 {
 	const int max_cleanup_fns = sizeof(cleanup_fns) / sizeof(cleanup_fns[0]);
@@ -121,6 +130,7 @@ SDL_bool push_cleanup_fn(void (*new_cleanup_fn) (void))
 	}
 }
 
+// Call all functions registered by push_cleanup_fn(), then exit().
 void cleanup_and_quit(int status)
 {
 	write_log("Freeing all objects before exiting program\n");
@@ -134,11 +144,14 @@ void cleanup_and_quit(int status)
 #endif
 }
 
+// If called, assert_or_cleanup() will create a message box attached to this.
 void register_message_window(SDL_Window *new_msg_window)
 {
 	msg_window = new_msg_window;
 }
 
+// If assertion is falsey, log a message along with an optional dynamic error-retrieval
+// function such as gl_get_error_stringified().
 void assert_or_debug(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
 {
 	if (!assertion) {
@@ -146,6 +159,8 @@ void assert_or_debug(SDL_bool assertion, char *msg, const char *(*error_getter) 
 	}
 }
 
+// If assertion is falsey, log a message or open a message box with the same contents
+// that assert_or_debug() would print; then exit the program cleanly.
 void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter) (void))
 {
 	if (!assertion) {
@@ -162,17 +177,20 @@ void assert_or_cleanup(SDL_bool assertion, char *msg, const char *(*error_getter
 	}
 }
 
+// Allocates memory.
 void *my_malloc(size_t size)
 {
 	return malloc(size);
 }
 
+// Free memory assigned by my_malloc().
 void my_free(void *ptr)
 {
 	free(ptr);
 }
 
-// Return value: success
+// Writes the cwd of the executable to buf.
+// Returns: success.
 SDL_bool get_executable_dir(char *buf, size_t bufsiz)
 {
 	SDL_bool success = SDL_TRUE;
@@ -199,7 +217,8 @@ SDL_bool get_executable_dir(char *buf, size_t bufsiz)
 	return success;
 }
 
-// Return value: success
+// Writes the absolute filepath to buf, given a filepath relative to the executable.
+// Returns: success.
 SDL_bool make_absolute_path(char *relative, char *buf, size_t bufsiz)
 {
 	if (get_executable_dir(buf, bufsiz)) {
