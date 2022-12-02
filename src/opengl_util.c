@@ -37,7 +37,7 @@ int pixel_format_buffer_size(int x, int y, int width, int height, GLenum format,
 	return (width - x) * (height - y) * pixel_size * 8;
 }
 
-int pixel_read_buffer_size(int x, int y, int width, int height, GLenum format)
+int pixel_read_buffer_size(int x, int y, int width, int height, GLenum format, GLenum type)
 {
 	int pixel_size = floats_per_pixel(format);
 	if (pixel_size == 0) {
@@ -45,7 +45,17 @@ int pixel_read_buffer_size(int x, int y, int width, int height, GLenum format)
 		return 0;
 	}
 
-	return (width - x) * (height - y) * pixel_size;
+	int pixel_component_size = 0;
+	switch (type) {
+		case GL_FLOAT:
+			pixel_component_size = sizeof(GLfloat);
+			break;
+		default:
+			write_log("Unsupported pixel data type: %d\n", type);
+			return 0;
+	}
+
+	return (width - x) * (height - y) * pixel_size * pixel_component_size;
 }
 
 void format_screenshot(int x, int y, int width, int height, GLenum format, GLenum type, char *buf, int buflen, GLfloat *pixel_buf, int pixel_buflen)
@@ -61,7 +71,7 @@ void format_screenshot(int x, int y, int width, int height, GLenum format, GLenu
 		return;
 	}
 
-	if (pixel_buflen < pixel_read_buffer_size(x, y, width, height, format)) {
+	if (pixel_buflen < pixel_read_buffer_size(x, y, width, height, format, type)) {
 		write_log("Insufficient pixel buffer size for screenshot\n");
 		return;
 	}
@@ -89,13 +99,13 @@ void format_screenshot_alloc(int x, int y, int width, int height, GLenum format,
 		return;
 	}
 
-	int pixel_buflen = pixel_read_buffer_size(x, y, width, height, format);
+	int pixel_buflen = pixel_read_buffer_size(x, y, width, height, format, type);
 	if (pixel_buflen == 0) {
 		return;
 	}
 
 	char *buf = my_malloc(buflen);
-	GLfloat *pixel_buf = my_malloc(pixel_buflen * sizeof(GLfloat));
+	GLfloat *pixel_buf = my_malloc(pixel_buflen);
 	format_screenshot(x, y, width, height, format, type, buf, buflen, pixel_buf, pixel_buflen);
 	write_log("%s\n", buf);
 	my_free(pixel_buf);
