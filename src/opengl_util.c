@@ -96,7 +96,7 @@ void format_screenshot(int x, int y, int width, int height, GLenum format, GLenu
 	for (int i = 0; i < height; ++i) {
 		for (int j = 0; j < width; ++j) {
 			int offset = (i * width + j) * pixel_size;
-			ptr += snprintf(&buf[ptr], buflen - ptr - 2, "%1.2f %1.2f, ", pixel_buf[offset], pixel_buf[offset + 1]);
+			ptr += snprintf(&buf[ptr], buflen - ptr - 2, "%5.2f %5.2f, ", pixel_buf[offset], pixel_buf[offset + 1]);
 			if (ptr >= buflen - 2) {
 				write_log("Screenshot truncated at pixel (%d, %d)\n", j, i);
 				return;
