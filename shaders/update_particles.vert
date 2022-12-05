@@ -22,5 +22,5 @@ void main()
 	speed_feedback = (speed + accel * time_step) * damping;
 	color_feedback = color;
 
-	gl_Position = vec4(float(gl_VertexID) * 2.0 / num_planets - 1.0, 0.0, 0.0, 1.0);
+	gl_Position = vec4((float(gl_VertexID) + 0.5) * 2.0 / num_planets - 1.0, 0.0, 0.0, 1.0);
 }
