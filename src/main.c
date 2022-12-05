@@ -192,6 +192,11 @@ void draw(void)
 			g_attraction_framebuffer_active = (g_attraction_framebuffer_active + 1) % 2;
 
 			glBindFramebuffer(GL_FRAMEBUFFER, g_attraction_framebuffer[g_attraction_framebuffer_active]);
+
+			glClearColor(0.0, 0.0, 0.0, 0.0);
+			glViewport(0, 0, g_num_planets, g_num_planets);
+				glClear(GL_COLOR_BUFFER_BIT);
+
 			glViewport(0, 0, (g_num_planets + fold_factor - 1) / fold_factor, g_num_planets);
 				glDrawArrays(GL_TRIANGLES, 0, 6);
 		}
