@@ -9,8 +9,10 @@ out vec4 color_feedback;
 uniform float num_planets;
 uniform sampler2D positions;
 uniform sampler2D attractions;
+uniform float time_step; // For applying accel to speed
 
-const float time_step = 0.0001; // For applying accel to speed.
+const float time_scale = 0.01;
+
 const float damping = 0.995; // Prevent the system from accumulating energy
 
 void main()
@@ -18,7 +20,7 @@ void main()
 	vec2 current_pos = texelFetch(positions, ivec2(gl_VertexID, 0), 0).xy;
 	vec2 accel = texelFetch(attractions, ivec2(0, gl_VertexID), 0).xy;
 
-	speed_feedback = (speed + accel * time_step) * damping;
+	speed_feedback = (speed + accel * time_step * time_scale) * damping;
 	color_feedback = color;
 
 	gl_Position = vec4((float(gl_VertexID) + 0.5) * 2.0 / num_planets - 1.0, 0.0, 0.0, 1.0);

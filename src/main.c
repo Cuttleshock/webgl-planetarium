@@ -166,13 +166,8 @@ SDL_bool update(Uint64 delta)
 	return SDL_FALSE;
 }
 
-void draw(void)
+void gpu_update(Uint64 delta)
 {
-	glClearColor(0.15, 0.1, 0.3, 1.0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glViewport(0, 0, WINDOW_W, WINDOW_H);
-		glClear(GL_COLOR_BUFFER_BIT);
-
 	// Calculate all attractions between planets
 	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
 		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
@@ -214,6 +209,9 @@ void draw(void)
 	g_position_framebuffer_active = (g_position_framebuffer_active + 1) % 2;
 	glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[g_position_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, 1);
+		GLfloat delta_f = (GLfloat)(delta) / 1000.0;
+		glUniform1f(glGetUniformLocation(g_motion_program, "time_step"), delta_f);
+
 		// Copy from TFBO first to prevent a new planet from being overwritten
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
 			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * g_num_planets);
@@ -221,6 +219,14 @@ void draw(void)
 		glBeginTransformFeedback(GL_POINTS);
 			glDrawArrays(GL_POINTS, 0, g_num_planets);
 		glEndTransformFeedback();
+}
+
+void draw(void)
+{
+	glClearColor(0.15, 0.1, 0.3, 1.0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, WINDOW_W, WINDOW_H);
+		glClear(GL_COLOR_BUFFER_BIT);
 
 	glBindVertexArray(g_draw_vao);
 	glUseProgram(g_draw_program);
@@ -234,6 +240,7 @@ void draw(void)
 SDL_bool main_loop(Uint64 delta)
 {
 	SDL_bool loop_done = update(delta);
+	gpu_update(delta);
 	draw();
 	return loop_done;
 }
