@@ -39,7 +39,7 @@ GLuint g_attraction_framebuffer[2];
 int g_attraction_framebuffer_active = 0;
 
 GLuint g_draw_program;
-GLuint g_physics_program;
+GLuint g_motion_program;
 GLuint g_attraction_program;
 GLuint g_fold_program;
 
@@ -85,8 +85,8 @@ void create_planet(GLfloat x, GLfloat y, GLfloat dx, GLfloat dy, GLfloat r, GLfl
 		glTexSubImage2D(GL_TEXTURE_2D, 0, g_num_planets, 0, 1, 1, GL_RG, GL_FLOAT, position_data);
 
 	++g_num_planets;
-	glUseProgram(g_physics_program);
-		glUniform1f(glGetUniformLocation(g_physics_program, "num_planets"), (GLfloat)(g_num_planets));
+	glUseProgram(g_motion_program);
+		glUniform1f(glGetUniformLocation(g_motion_program, "num_planets"), (GLfloat)(g_num_planets));
 }
 
 void push_quit_event(void)
@@ -210,7 +210,7 @@ void draw(void)
 		glBindTexture(GL_TEXTURE_2D, g_attraction_texture[g_attraction_framebuffer_active]);
 
 	glBindVertexArray(g_physics_vao);
-	glUseProgram(g_physics_program);
+	glUseProgram(g_motion_program);
 	g_position_framebuffer_active = (g_position_framebuffer_active + 1) % 2;
 	glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[g_position_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, 1);
@@ -392,27 +392,27 @@ int main(int argc, char *argv[])
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
 			glVertexAttribPointer(in_color_draw, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 
-	GLuint physics_shaders[2]; // vertex, fragment
+	GLuint motion_shaders[2]; // vertex, fragment
 
-	physics_shaders[0] = load_shader("shaders/update_particles.vert", GL_VERTEX_SHADER);
-	assert_or_cleanup(physics_shaders[0] != 0, "Failed to load update vertex shader", NULL);
+	motion_shaders[0] = load_shader("shaders/resolve_motion.vert", GL_VERTEX_SHADER);
+	assert_or_cleanup(motion_shaders[0] != 0, "Failed to load motion resolution vertex shader", NULL);
 
-	physics_shaders[1] = load_shader("shaders/update_particles.frag", GL_FRAGMENT_SHADER);
-	assert_or_cleanup(physics_shaders[1] != 0, "Failed to load update fragment shader", NULL);
+	motion_shaders[1] = load_shader("shaders/resolve_motion.frag", GL_FRAGMENT_SHADER);
+	assert_or_cleanup(motion_shaders[1] != 0, "Failed to load motion resolution fragment shader", NULL);
 
 	char *outs_update = "out_position";
 	const char *transforms[] = { "speed_feedback", "color_feedback" };
-	g_physics_program = create_shader_program(2, physics_shaders, 1, &outs_update, 2, transforms);
-	assert_or_cleanup(g_physics_program != 0, "Failed to create update shader program", gl_get_error_stringified);
+	g_motion_program = create_shader_program(2, motion_shaders, 1, &outs_update, 2, transforms);
+	assert_or_cleanup(g_motion_program != 0, "Failed to create update shader program", gl_get_error_stringified);
 
-	glUseProgram(g_physics_program);
+	glUseProgram(g_motion_program);
 	glBindVertexArray(g_physics_vao);
-		glUniform1i(glGetUniformLocation(g_physics_program, "positions"), POSITION_TEX_UNIT_OFFSET);
-		glUniform1i(glGetUniformLocation(g_physics_program, "attractions"), ATTRACTION_TEX_UNIT_OFFSET);
-		glUniform1f(glGetUniformLocation(g_physics_program, "num_planets"), (GLfloat)(0.0));
+		glUniform1i(glGetUniformLocation(g_motion_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+		glUniform1i(glGetUniformLocation(g_motion_program, "attractions"), ATTRACTION_TEX_UNIT_OFFSET);
+		glUniform1f(glGetUniformLocation(g_motion_program, "num_planets"), (GLfloat)(0.0));
 
-		GLint in_speed = glGetAttribLocation(g_physics_program, "speed");
-		GLint in_color = glGetAttribLocation(g_physics_program, "color");
+		GLint in_speed = glGetAttribLocation(g_motion_program, "speed");
+		GLint in_color = glGetAttribLocation(g_motion_program, "color");
 
 		glEnableVertexAttribArray(in_speed);
 		glEnableVertexAttribArray(in_color);
