@@ -166,9 +166,8 @@ SDL_bool update(Uint64 delta)
 	return SDL_FALSE;
 }
 
-void gpu_update(Uint64 delta)
+void calculate_gravity(void)
 {
-	// Calculate all attractions between planets
 	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
 		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
 
@@ -177,8 +176,10 @@ void gpu_update(Uint64 delta)
 	glViewport(0, 0, g_num_planets, g_num_planets);
 	// Need a valid VAO but doesn't matter which
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+}
 
-	// Fold attractions into flat texture
+void fold_gravity_texture(void)
+{
 	glUseProgram(g_fold_program);
 		for (int fold_factor = 4; fold_factor < g_num_planets * 4; fold_factor *= 4) {
 			glActiveTexture(GL_TEXTURE0 + FOLD_TEX_UNIT_OFFSET);
@@ -195,7 +196,10 @@ void gpu_update(Uint64 delta)
 			glViewport(0, 0, (g_num_planets + fold_factor - 1) / fold_factor, g_num_planets);
 				glDrawArrays(GL_TRIANGLES, 0, 6);
 		}
+}
 
+void resolve_motion(GLfloat delta)
+{
 	// Bind last frame's position texture to uniform slot
 	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
 		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
@@ -209,8 +213,7 @@ void gpu_update(Uint64 delta)
 	g_position_framebuffer_active = (g_position_framebuffer_active + 1) % 2;
 	glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[g_position_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, 1);
-		GLfloat delta_f = (GLfloat)(delta) / 1000.0;
-		glUniform1f(glGetUniformLocation(g_motion_program, "time_step"), delta_f);
+		glUniform1f(glGetUniformLocation(g_motion_program, "time_step"), delta);
 
 		// Copy from TFBO first to prevent a new planet from being overwritten
 		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
@@ -219,6 +222,13 @@ void gpu_update(Uint64 delta)
 		glBeginTransformFeedback(GL_POINTS);
 			glDrawArrays(GL_POINTS, 0, g_num_planets);
 		glEndTransformFeedback();
+}
+
+void gpu_update(Uint64 delta)
+{
+	calculate_gravity();
+	fold_gravity_texture();
+	resolve_motion((GLfloat)(delta) / 1000.0);
 }
 
 void draw(void)
