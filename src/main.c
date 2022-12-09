@@ -24,15 +24,13 @@ SDL_Window *g_window;
 SDL_GLContext g_glcontext;
 
 GLuint g_draw_vao;
-GLuint g_physics_vao;
 
 GLuint g_circle_vbo;
-GLuint g_physics_vbo;
-GLuint g_tfbo;
+GLuint g_colour_vbo;
 
-GLuint g_position_framebuffer[2];
-GLuint g_position_texture[2];
-int g_position_framebuffer_active = 0;
+GLuint g_motion_framebuffer[2];
+GLuint g_motion_texture[2];
+int g_motion_framebuffer_active = 0;
 
 GLuint g_impulse_texture[2];
 GLuint g_impulse_framebuffer[2];
@@ -75,14 +73,14 @@ void create_planet(GLfloat x, GLfloat y, GLfloat dx, GLfloat dy, GLfloat r, GLfl
 	}
 
 	GLfloat vbo_data[] = {
-		dx, dy,
 		r, g, b, 1.0,
 	};
-	glBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, g_num_planets * sizeof(vbo_data), sizeof(vbo_data), vbo_data);
+	glBindBuffer(GL_ARRAY_BUFFER, g_colour_vbo);
+		glBufferSubData(GL_ARRAY_BUFFER, g_num_planets * sizeof(vbo_data), sizeof(vbo_data), vbo_data);
 
-	glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
-		GLfloat position_data[] = { x, y };
-		glTexSubImage2D(GL_TEXTURE_2D, 0, g_num_planets, 0, 1, 1, GL_RG, GL_FLOAT, position_data);
+	glBindTexture(GL_TEXTURE_2D, g_motion_texture[g_motion_framebuffer_active]);
+		GLfloat position_data[] = { x, y, dx, dy };
+		glTexSubImage2D(GL_TEXTURE_2D, 0, g_num_planets, 0, 1, 1, GL_RGBA, GL_FLOAT, position_data);
 
 	++g_num_planets;
 	glUseProgram(g_motion_program);
@@ -169,7 +167,7 @@ SDL_bool update(Uint64 delta)
 void calculate_gravity(void)
 {
 	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
-		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
+		glBindTexture(GL_TEXTURE_2D, g_motion_texture[g_motion_framebuffer_active]);
 
 	glUseProgram(g_attraction_program);
 	glBindFramebuffer(GL_FRAMEBUFFER, g_impulse_framebuffer[g_impulse_framebuffer_active]);
@@ -202,26 +200,18 @@ void resolve_motion(GLfloat delta)
 {
 	// Bind last frame's position texture to uniform slot
 	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
-		glBindTexture(GL_TEXTURE_2D, g_position_texture[g_position_framebuffer_active]);
+		glBindTexture(GL_TEXTURE_2D, g_motion_texture[g_motion_framebuffer_active]);
 
 	// Bind flat attractions to uniform slot
 	glActiveTexture(GL_TEXTURE0 + ATTRACTION_TEX_UNIT_OFFSET);
 		glBindTexture(GL_TEXTURE_2D, g_impulse_texture[g_impulse_framebuffer_active]);
 
-	glBindVertexArray(g_physics_vao);
 	glUseProgram(g_motion_program);
-	g_position_framebuffer_active = (g_position_framebuffer_active + 1) % 2;
-	glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[g_position_framebuffer_active]);
+	g_motion_framebuffer_active = (g_motion_framebuffer_active + 1) % 2;
+	glBindFramebuffer(GL_FRAMEBUFFER, g_motion_framebuffer[g_motion_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, 1);
 		glUniform1f(glGetUniformLocation(g_motion_program, "time_step"), delta);
-
-		// Copy from TFBO first to prevent a new planet from being overwritten
-		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glCopyBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER, GL_ARRAY_BUFFER, 0, 0, 6 * sizeof(GLfloat) * g_num_planets);
-
-		glBeginTransformFeedback(GL_POINTS);
-			glDrawArrays(GL_POINTS, 0, g_num_planets);
-		glEndTransformFeedback();
+		glDrawArrays(GL_POINTS, 0, g_num_planets);
 }
 
 void gpu_update(Uint64 delta)
@@ -332,27 +322,22 @@ int main(int argc, char *argv[])
 	#endif
 #endif
 
-	glGenVertexArrays(1, &g_physics_vao);
 	glGenVertexArrays(1, &g_draw_vao);
-	glBindVertexArray(g_physics_vao);
+	glBindVertexArray(g_draw_vao);
 
 	// Ensure buffers that won't immediately be overwritten are set to zero
-	GLfloat zeroes[6 * MAX_PLANETS];
+	GLfloat zeroes[4 * MAX_PLANETS];
 	for (int i = 0; i < sizeof(zeroes) / sizeof(zeroes[0]); ++i) {
 		zeroes[i] = 0.0;
 	}
-
-	glGenBuffers(1, &g_tfbo);
-	glBindBuffer(GL_ARRAY_BUFFER, g_tfbo);
-		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, zeroes, GL_DYNAMIC_COPY);
 
 	glGenBuffers(1, &g_circle_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
 		glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(float) * (CIRCLE_SIDES + 2), NULL, GL_STATIC_DRAW);
 
-	glGenBuffers(1, &g_physics_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-		glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat) * MAX_PLANETS, zeroes, GL_STATIC_DRAW);
+	glGenBuffers(1, &g_colour_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, g_colour_vbo);
+		glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(GLfloat) * MAX_PLANETS, zeroes, GL_DYNAMIC_DRAW);
 
 	GLuint circle_shaders[2]; // vertex, fragment
 
@@ -375,9 +360,6 @@ int main(int argc, char *argv[])
 				glDrawArrays(GL_POINTS, 0, CIRCLE_SIDES + 2);
 			glEndTransformFeedback();
 		glDisable(GL_RASTERIZER_DISCARD);
-
-	// This is here to stay for the rest of the program
-	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, g_tfbo);
 
 	GLuint draw_shaders[2]; // vertex, fragment
 
@@ -406,8 +388,8 @@ int main(int argc, char *argv[])
 		glBindBuffer(GL_ARRAY_BUFFER, g_circle_vbo);
 			glVertexAttribPointer(in_vertex, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glVertexAttribPointer(in_color_draw, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+		glBindBuffer(GL_ARRAY_BUFFER, g_colour_vbo);
+			glVertexAttribPointer(in_color_draw, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
 	GLuint motion_shaders[2]; // vertex, fragment
 
@@ -418,39 +400,27 @@ int main(int argc, char *argv[])
 	assert_or_cleanup(motion_shaders[1] != 0, "Failed to load motion resolution fragment shader", NULL);
 
 	char *outs_update = "out_position";
-	const char *transforms[] = { "speed_feedback", "color_feedback" };
-	g_motion_program = create_shader_program(2, motion_shaders, 1, &outs_update, 2, transforms);
+	g_motion_program = create_shader_program(2, motion_shaders, 1, &outs_update, 0, NULL);
 	assert_or_cleanup(g_motion_program != 0, "Failed to create update shader program", gl_get_error_stringified);
 
 	glUseProgram(g_motion_program);
-	glBindVertexArray(g_physics_vao);
 		glUniform1i(glGetUniformLocation(g_motion_program, "positions"), POSITION_TEX_UNIT_OFFSET);
 		glUniform1i(glGetUniformLocation(g_motion_program, "attractions"), ATTRACTION_TEX_UNIT_OFFSET);
 		glUniform1f(glGetUniformLocation(g_motion_program, "num_planets"), (GLfloat)(0.0));
 
-		GLint in_speed = glGetAttribLocation(g_motion_program, "speed");
-		GLint in_color = glGetAttribLocation(g_motion_program, "color");
-
-		glEnableVertexAttribArray(in_speed);
-		glEnableVertexAttribArray(in_color);
-
-		glBindBuffer(GL_ARRAY_BUFFER, g_physics_vbo);
-			glVertexAttribPointer(in_speed, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
-			glVertexAttribPointer(in_color, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
-
 	// Flat n * 1 texture of all planet positions
-	glGenTextures(2, g_position_texture);
-	glGenFramebuffers(2, g_position_framebuffer);
+	glGenTextures(2, g_motion_texture);
+	glGenFramebuffers(2, g_motion_framebuffer);
 
 	for (int i = 0; i < 2; ++i) {
-		glBindTexture(GL_TEXTURE_2D, g_position_texture[i]);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, MAX_PLANETS, 1, 0, GL_RG, GL_FLOAT, NULL);
+		glBindTexture(GL_TEXTURE_2D, g_motion_texture[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_PLANETS, 1, 0, GL_RGBA, GL_FLOAT, NULL);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-		glBindFramebuffer(GL_FRAMEBUFFER, g_position_framebuffer[i]);
+		glBindFramebuffer(GL_FRAMEBUFFER, g_motion_framebuffer[i]);
 		glViewport(0, 0, MAX_PLANETS, 1);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_position_texture[i], 0);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_motion_texture[i], 0);
 			assert_or_cleanup(
 				glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE,
 				"Planet position framebuffer incomplete",
