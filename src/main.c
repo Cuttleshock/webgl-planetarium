@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
 	attraction_shaders[1] = load_shader("shaders/calc_particle_attractions.frag", GL_FRAGMENT_SHADER);
 	assert_or_cleanup(attraction_shaders[1] != 0, "Failed to load calc_particle_attractions.frag", NULL);
 
-	char *attraction_out = "out_distance";
+	char *attraction_out = "out_attraction";
 	g_attraction_program = create_shader_program(2, attraction_shaders, 1, &attraction_out, 0, NULL);
 	assert_or_cleanup(g_attraction_program != 0, "Failed to link quad.vert and calc_particle_attractions.frag", gl_get_error_stringified);
 
