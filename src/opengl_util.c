@@ -16,6 +16,8 @@ int floats_per_pixel(GLenum format)
 	switch (format) {
 		case GL_RG:
 			return 2;
+		case GL_RGBA:
+			return 4;
 		default:
 			return 0;
 	}
@@ -61,6 +63,30 @@ int pixel_read_buffer_size(int x, int y, int width, int height, GLenum format, G
 	return (width - x) * (height - y) * pixel_size * pixel_component_size;
 }
 
+// Print contents of a single pixel as float array to buffer.
+// Returns: results of snprintf(), or 0 if invalid data
+int format_pixel(GLenum format, GLenum type, char *buf, int buflen, GLfloat *pixel)
+{
+	int ret = 0;
+
+	if (type != GL_FLOAT) {
+		return ret;
+	}
+
+	switch (format) {
+		case GL_RG:
+			ret = snprintf(buf, buflen, "%5.2f %5.2f, ", pixel[0], pixel[1]);
+			break;
+		case GL_RGBA:
+			ret = snprintf(buf, buflen, "%5.2f %5.2f %5.2f %5.2f, ", pixel[0], pixel[1], pixel[2], pixel[3]);
+			break;
+		default:
+			break;
+	}
+
+	return ret;
+}
+
 // Print contents of framebuffer to a provided character array, using a second provided
 // buffer to read pixels to.
 // Example usage:
@@ -96,7 +122,7 @@ void format_screenshot(int x, int y, int width, int height, GLenum format, GLenu
 	for (int i = 0; i < height; ++i) {
 		for (int j = 0; j < width; ++j) {
 			int offset = (i * width + j) * pixel_size;
-			ptr += snprintf(&buf[ptr], buflen - ptr - 2, "%5.2f %5.2f, ", pixel_buf[offset], pixel_buf[offset + 1]);
+			ptr += format_pixel(format, type, &buf[ptr], buflen - ptr - 2, &pixel_buf[offset]);
 			if (ptr >= buflen - 2) {
 				write_log("Screenshot truncated at pixel (%d, %d)\n", j, i);
 				return;
