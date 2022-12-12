@@ -378,6 +378,8 @@ int main(int argc, char *argv[])
 				glDrawArrays(GL_POINTS, 0, CIRCLE_SIDES + 2);
 			glEndTransformFeedback();
 		glDisable(GL_RASTERIZER_DISCARD);
+	// WebGL exhibits undefined behaviour if a buffer in use is also bound as TFBO
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 
 	GLuint draw_shaders[2]; // vertex, fragment
 
