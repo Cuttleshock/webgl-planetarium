@@ -38,6 +38,7 @@ int g_impulse_framebuffer_active = 0;
 
 GLuint g_draw_program;
 GLuint g_motion_program;
+GLuint g_intersection_program;
 GLuint g_attraction_program;
 GLuint g_fold_program;
 
@@ -164,16 +165,32 @@ SDL_bool update(Uint64 delta)
 	return SDL_FALSE;
 }
 
-void calculate_gravity(void)
+void resolve_intersections()
 {
 	glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
 		glBindTexture(GL_TEXTURE_2D, g_motion_texture[g_motion_framebuffer_active]);
 
-	glUseProgram(g_attraction_program);
+	glUseProgram(g_intersection_program);
 	glBindFramebuffer(GL_FRAMEBUFFER, g_impulse_framebuffer[g_impulse_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, g_num_planets);
 	// Need a valid VAO but doesn't matter which
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void calculate_gravity(void)
+{
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);
+		glActiveTexture(GL_TEXTURE0 + POSITION_TEX_UNIT_OFFSET);
+			glBindTexture(GL_TEXTURE_2D, g_motion_texture[g_motion_framebuffer_active]);
+
+		glUseProgram(g_attraction_program);
+		glBindFramebuffer(GL_FRAMEBUFFER, g_impulse_framebuffer[g_impulse_framebuffer_active]);
+		glViewport(0, 0, g_num_planets, g_num_planets);
+		// Need a valid VAO but doesn't matter which
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBlendFunc(GL_ONE, GL_ZERO); // default values
+	glDisable(GL_BLEND);
 }
 
 void fold_gravity_texture(void)
@@ -216,6 +233,7 @@ void resolve_motion(GLfloat delta)
 
 void gpu_update(Uint64 delta)
 {
+	resolve_intersections();
 	calculate_gravity();
 	fold_gravity_texture();
 	resolve_motion((GLfloat)(delta) / 1000.0);
@@ -429,6 +447,22 @@ int main(int argc, char *argv[])
 			glClearColor(0.0, 0.0, 0.0, 0.0);
 			glClear(GL_COLOR_BUFFER_BIT);
 	}
+
+	GLuint intersection_shaders[2]; // vertex, fragment
+
+	intersection_shaders[0] = load_shader("shaders/quad.vert", GL_VERTEX_SHADER);
+	assert_or_cleanup(intersection_shaders[0] != 0, "Failed to load quad.vert", NULL);
+
+	intersection_shaders[1] = load_shader("shaders/resolve_intersections.frag", GL_FRAGMENT_SHADER);
+	assert_or_cleanup(intersection_shaders[1] != 0, "Failed to load resolve_intersections.frag", NULL);
+
+	char *intersection_out = "out_impulse";
+	g_intersection_program = create_shader_program(2, intersection_shaders, 1, &intersection_out, 0, NULL);
+	assert_or_cleanup(g_intersection_program != 0, "Failed to link quad.vert and resolve_intersections.frag", gl_get_error_stringified);
+
+	glUseProgram(g_intersection_program);
+		glUniform1i(glGetUniformLocation(g_intersection_program, "positions"), POSITION_TEX_UNIT_OFFSET);
+		glUniform1f(glGetUniformLocation(g_intersection_program, "planet_r"), POINT_RADIUS);
 
 	GLuint attraction_shaders[2]; // vertex, fragment
 
