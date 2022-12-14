@@ -362,7 +362,11 @@ GLuint create_shader_program(int num_shaders, GLuint *shaders, int num_outs, cha
 		glBindFragDataLocation(program, i, outs[i]);
 #endif
 	}
-	glTransformFeedbackVaryings(program, num_transforms, transforms, GL_INTERLEAVED_ATTRIBS);
+
+	if (num_transforms > 0) {
+		glTransformFeedbackVaryings(program, num_transforms, transforms, GL_INTERLEAVED_ATTRIBS);
+	}
+
 	glLinkProgram(program);
 
 	for (int i = 0; i < num_shaders; ++i) {
