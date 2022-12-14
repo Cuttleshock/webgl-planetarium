@@ -84,8 +84,6 @@ void create_planet(GLfloat x, GLfloat y, GLfloat dx, GLfloat dy, GLfloat r, GLfl
 		glTexSubImage2D(GL_TEXTURE_2D, 0, g_num_planets, 0, 1, 1, GL_RGBA, GL_FLOAT, position_data);
 
 	++g_num_planets;
-	glUseProgram(g_motion_program);
-		glUniform1f(glGetUniformLocation(g_motion_program, "num_planets"), (GLfloat)(g_num_planets));
 }
 
 void push_quit_event(void)
@@ -228,7 +226,7 @@ void resolve_motion(GLfloat delta)
 	glBindFramebuffer(GL_FRAMEBUFFER, g_motion_framebuffer[g_motion_framebuffer_active]);
 	glViewport(0, 0, g_num_planets, 1);
 		glUniform1f(glGetUniformLocation(g_motion_program, "time_step"), delta);
-		glDrawArrays(GL_POINTS, 0, g_num_planets);
+		glDrawArrays(GL_LINES, 0, 2);
 }
 
 void gpu_update(Uint64 delta)
@@ -413,7 +411,7 @@ int main(int argc, char *argv[])
 
 	GLuint motion_shaders[2]; // vertex, fragment
 
-	motion_shaders[0] = load_shader("shaders/resolve_motion.vert", GL_VERTEX_SHADER);
+	motion_shaders[0] = load_shader("shaders/line.vert", GL_VERTEX_SHADER);
 	assert_or_cleanup(motion_shaders[0] != 0, "Failed to load motion resolution vertex shader", NULL);
 
 	motion_shaders[1] = load_shader("shaders/resolve_motion.frag", GL_FRAGMENT_SHADER);
@@ -426,7 +424,6 @@ int main(int argc, char *argv[])
 	glUseProgram(g_motion_program);
 		glUniform1i(glGetUniformLocation(g_motion_program, "positions"), POSITION_TEX_UNIT_OFFSET);
 		glUniform1i(glGetUniformLocation(g_motion_program, "attractions"), ATTRACTION_TEX_UNIT_OFFSET);
-		glUniform1f(glGetUniformLocation(g_motion_program, "num_planets"), (GLfloat)(0.0));
 
 	// Flat n * 1 texture of all planet positions
 	glGenTextures(2, g_motion_texture);

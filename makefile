@@ -25,8 +25,8 @@ SOURCES_WIN = main glad_gl util opengl_util
 SOURCES_WEB = main util opengl_util
 SHELL_FILE_WEB = web_shell.html
 SHADERS = shaders/particles.vert shaders/particles.frag \
-	shaders/resolve_motion.vert shaders/resolve_motion.frag \
-	shaders/quad.vert \
+	shaders/resolve_motion.frag \
+	shaders/quad.vert shaders/line.vert \
 	shaders/calc_particle_attractions.frag \
 	shaders/resolve_intersections.frag \
 	shaders/fold_texture.frag \
